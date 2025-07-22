@@ -10,10 +10,10 @@
   "license": "ISC",
   "dependencies": {
     "discord.js": "^14.21.0",
+    "dotenv": "^17.2.0",
     "moment-timezone": "^0.6.0",
     "node-schedule": "^2.1.1"
   },
-  "devDependencies": {},
   "repository": {
     "type": "git",
     "url": "git+https://github.com/KotoriDiscordBot/Kotori-Discord-Bot.git"
