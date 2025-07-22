@@ -1,17 +1,26 @@
 {
   "name": "kotori-minami",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "bot.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node bot.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
   "dependencies": {
     "discord.js": "^14.21.0",
     "moment-timezone": "^0.6.0",
     "node-schedule": "^2.1.1"
-  }
+  },
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/KotoriDiscordBot/Kotori-Discord-Bot.git"
+  },
+  "bugs": {
+    "url": "https://github.com/KotoriDiscordBot/Kotori-Discord-Bot/issues"
+  },
+  "homepage": "https://github.com/KotoriDiscordBot/Kotori-Discord-Bot#readme",
+  "description": ""
 }
