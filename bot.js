@@ -1,11 +1,16 @@
 require('dotenv').config(); // Load environment variables
 
 const { Client, GatewayIntentBits } = require('discord.js');
-const http = require('http'); // <-- Add HTTP server module
+const http = require('http');
+const setupSchedules = require('./threadCreator'); // <-- Correct import for the scheduled job
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
-
-const { createThread } = require('./threadCreator');
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent
+  ]
+});
 
 // Create a minimal HTTP server that responds to pings
 http.createServer((req, res) => {
@@ -13,10 +18,9 @@ http.createServer((req, res) => {
   res.end('Bot is awake!');
 }).listen(process.env.PORT || 3000);
 
-client.once('ready', async () => {
-  console.log('Bot is online!');
-  const channel = await client.channels.fetch('1240048890175033396');
-  await createThread(channel, '1397121138173149214', 'Raid');
+client.once('ready', () => {
+  console.log('✅ Bot is online and ready!');
+  setupSchedules(client); // <-- This starts your daily 18:00 scheduler
 });
 
 // Use token from .env
