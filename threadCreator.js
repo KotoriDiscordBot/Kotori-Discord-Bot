@@ -16,26 +16,29 @@ module.exports = function setupSchedules(client) {
       // === THREAD 1 ===
       const channel1 = await client.channels.fetch('1369526757673144391');
       const message1 = await channel1.messages.fetch('1397107841218908323');
-      await message1.startThread({
+      const thread1 = await message1.startThread({
         name: 'Primera hora',
         autoArchiveDuration: 10080
       });
+      await thread1.send('+1');
 
       // === THREAD 2 ===
       const channel2 = await client.channels.fetch('1369526825386246206');
       const message2 = await channel2.messages.fetch('1397107892414320710');
-      await message2.startThread({
+      const thread2 = await message2.startThread({
         name: 'Segunda hora',
         autoArchiveDuration: 10080
       });
+      await thread2.send('+1');
 
       // === THREAD 3 ===
       const channel3 = await client.channels.fetch('1369526941282996284');
       const message3 = await channel3.messages.fetch('1397107962048417842');
-      await message3.startThread({
+      const thread3 = await message3.startThread({
         name: 'Tercera hora',
         autoArchiveDuration: 10080
       });
+      await thread3.send('+1');
 
       // === NOTIFY MESSAGE ===
       const notifyChannel = await client.channels.fetch('1208444259653521531');
