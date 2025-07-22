@@ -1,9 +1,17 @@
 require('dotenv').config(); // Load environment variables
 
 const { Client, GatewayIntentBits } = require('discord.js');
+const http = require('http'); // <-- Add HTTP server module
+
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
 
 const { createThread } = require('./threadCreator');
+
+// Create a minimal HTTP server that responds to pings
+http.createServer((req, res) => {
+  res.writeHead(200);
+  res.end('Bot is awake!');
+}).listen(process.env.PORT || 3000);
 
 client.once('ready', async () => {
   console.log('Bot is online!');
