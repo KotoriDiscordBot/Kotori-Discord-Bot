@@ -180,7 +180,7 @@ client.on('interactionCreate', async (interaction) => {
     const filePath = path.join(__dirname, 'FichasHC.xlsx'); // Correct file path
 
     await interaction.reply({
-      content: 'Rellena este archivo con tus fichas HC individuales y tus fichas HC de acto para saber cuántas fichas te faltan para el libro de ataque',
+      content: 'Rellena este archivo con tus fichas HC individuales y tus fichas HC de acto para saber cuánto te falta para el libro de ataque. Créditos a Kurapikaa',
       files: [filePath],
       flags: undefined // Force non-ephemeral message in guilds
     });
