@@ -1,6 +1,15 @@
 require('dotenv').config(); // Load environment variables
 
-const { Client, GatewayIntentBits, Partials, ChannelType, SlashCommandBuilder, REST, Routes } = require('discord.js');
+const {
+  Client,
+  GatewayIntentBits,
+  Partials,
+  ChannelType,
+  SlashCommandBuilder,
+  REST,
+  Routes,
+  EmbedBuilder
+} = require('discord.js');
 const http = require('http');
 const setupSchedules = require('./threadCreator');
 
@@ -103,16 +112,15 @@ client.on('interactionCreate', async (interaction) => {
       lodDate.setMinutes(parseInt(minute));
 
       const unix = Math.floor(lodDate.getTime() / 1000);
-
-      // Channels string padded to 15 chars so the dash aligns nicely
-      const channelsStr = channels.join(', ').padEnd(15, ' ');
-
-      return `<t:${unix}:t>  -  ${channelsStr}`;
+      const channelStr = channels.join(', ').padEnd(18, ' ');
+      return `**${channelStr}** - <t:${unix}:t>`;
     });
 
-    const embedMessage = `🕘 Horarios de apertura de LOD (se muestra en tu horario)\n\n${lodList.join('\n')}`;
+    const embed = new EmbedBuilder()
+      .setColor('#ff46da')
+      .setDescription(`🕘 **Horarios de apertura de LOD (se muestra en tu horario)**\n\n${lodList.join('\n')}`);
 
-    await interaction.reply({ content: embedMessage, flags: 64 }); // ephemeral reply
+    await interaction.reply({ embeds: [embed], ephemeral: true });
   }
 });
 
