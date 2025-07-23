@@ -55,6 +55,8 @@ client.once('ready', async () => {
 // 📨 Cache to prevent duplicate DM forwarding
 const recentDMs = new Set();
 
+const greetedUsers = new Set();
+
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
 
@@ -66,7 +68,10 @@ client.on('messageCreate', async (message) => {
     console.log(`💬 [PID: ${process.pid}] DM from ${message.author.tag}: ${message.content}`);
 
     try {
-      await message.reply('Holi, este es el bot de Kotori. Tu mensaje será reenviado a la verdadera Kotori y recibirás una respuesta en cuanto sea posible. A no ser que seas Gum, en cuyo caso no recibirás ninguna respuesta ✨');
+      if (!greetedUsers.has(message.author.id)) {
+        await message.reply('Holi, este es el bot de Kotori. Tu mensaje será reenviado a la verdadera Kotori y recibirás una respuesta en cuanto sea posible. A no ser que seas Gum, en cuyo caso no recibirás ninguna respuesta ✨');
+        greetedUsers.add(message.author.id);
+      }
 
       const logChannel = await client.channels.fetch('1397418340074524847');
       if (logChannel && logChannel.isTextBased()) {
@@ -75,12 +80,11 @@ client.on('messageCreate', async (message) => {
         const displayName = message.author.globalName || message.author.username;
         const username = message.author.username;
 
-        // Create an embed with your desired color for the DM log message
         const dmEmbed = new EmbedBuilder()
           .setColor('#ff46da')
           .setDescription(`Mensaje de ${displayName} (${username}): ${message.content}`);
 
-        logChannel.send({ embeds: [dmEmbed] });
+        await logChannel.send({ embeds: [dmEmbed] });
       } else {
         console.log('⚠️ Could not find a valid text channel to forward to.');
       }
