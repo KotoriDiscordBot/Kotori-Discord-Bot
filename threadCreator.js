@@ -58,7 +58,7 @@ module.exports = function setupSchedules(client) {
 // Confirm the bot is alive at 17:50 with embed
 schedule.scheduleJob({ rule: '0 50 17 * * *', tz: 'America/Argentina/Buenos_Aires' }, async () => {
   try {
-    const confirmChannel = await client.channels.fetch('1208444259653521531');
+    const confirmChannel = await client.channels.fetch('1397497912421908500');
     const embed = {
       description: 'El bot de Kotori continúa activo y preparado para abrir listas de raids dentro de 10 minutos 👑',
       color: 0xff46da, // This is the hex code in decimal
