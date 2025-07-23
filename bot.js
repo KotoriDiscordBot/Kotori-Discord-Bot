@@ -95,64 +95,82 @@ client.on('interactionCreate', async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
   if (interaction.commandName === 'lod') {
-  const hours = [
-    { time: '00:00', channels: ['CH7'] },
-    { time: '03:00', channels: ['CH1'] },
-    { time: '06:00', channels: ['CH1'] },
-    { time: '09:00', channels: ['CH2'] },
-    { time: '12:00', channels: ['CH3'] },
-    { time: '15:00', channels: ['CH2', 'CH3', 'CH6'] },
-    { time: '18:00', channels: ['CH4', 'CH5', 'CH7'] },
-    { time: '21:00', channels: ['CH4', 'CH5', 'CH6'] },
-  ];
+    const hours = [
+      { time: '00:00', channels: ['CH7'] },
+      { time: '03:00', channels: ['CH1'] },
+      { time: '06:00', channels: ['CH1'] },
+      { time: '09:00', channels: ['CH2'] },
+      { time: '12:00', channels: ['CH3'] },
+      { time: '15:00', channels: ['CH2', 'CH3', 'CH6'] },
+      { time: '18:00', channels: ['CH4', 'CH5', 'CH7'] },
+      { time: '21:00', channels: ['CH4', 'CH5', 'CH6'] },
+    ];
 
-  // Use today's date in Europe/Madrid as a string
-  const now = new Date();
+    const now = new Date();
 
-  // Get the current date in Europe/Madrid timezone as YYYY-MM-DD
-  const spainDateParts = now.toLocaleString('en-GB', { timeZone: 'Europe/Madrid' }).split(',')[0].split('/');
-  // Day/Month/Year from en-GB date format
-  const [day, month, year] = spainDateParts.map(Number);
+    // Get today's date components in Europe/Madrid timezone
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Europe/Madrid',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
 
-  // Helper to parse Europe/Madrid time string into a Date (in UTC)
-  function getUnixFromMadridTime(timeStr) {
-    // Compose a date string with Spain local time
-    const [hour, minute] = timeStr.split(':').map(Number);
-    // Construct a string that JS Date can parse as local in Europe/Madrid by using toLocaleString
-    // We build a date-time string and parse it with Spain TZ to get equivalent UTC time:
-    const madridDateString = new Date(Date.UTC(year, month - 1, day, hour, minute));
+    // en-CA format: YYYY-MM-DD
+    const [{ value: year }, , { value: month }, , { value: day }] = formatter.formatToParts(now);
 
-    // To get correct UTC timestamp for that Europe/Madrid time, we:
-    // 1. Format the date as Europe/Madrid time (the one we want)
-    // 2. Parse it as if it were UTC so we get the correct offset applied
+    const lodList = hours.map(({ time, channels }) => {
+      const [hour, minute] = time.split(':').map(Number);
 
-    // Step 1: Format in Europe/Madrid timezone (this returns a string with local time)
-    const localSpainString = madridDateString.toLocaleString('en-GB', { timeZone: 'Europe/Madrid', hour12: false });
+      // Construct a ISO date string for Europe/Madrid time (local time in Madrid)
+      const madridLocalDateStr = `${year}-${month}-${day}T${time}:00`;
 
-    // Step 2: Parse back that string as if it were UTC time (hacky but works)
-    const [datePart, timePart] = localSpainString.split(', ');
-    const [d, m, y] = datePart.split('/').map(Number);
-    const [h, min] = timePart.split(':').map(Number);
+      // Create a Date object from the ISO string in the server's timezone
+      const localDate = new Date(madridLocalDateStr);
 
-    // Now create a date object in UTC with these parts
-    const utcDate = new Date(Date.UTC(y, m - 1, d, h, min));
+      // Get the UTC timestamp for the exact Madrid time accounting for DST
+      // To do this correctly, use Intl.DateTimeFormat with timeZone: Europe/Madrid to get offset
 
-    return Math.floor(utcDate.getTime() / 1000);
+      // Calculate offset in minutes between UTC and Madrid time at this datetime
+      const madridOffset = -getTimezoneOffsetInMinutes(madridLocalDateStr, 'Europe/Madrid');
+
+      // UTC timestamp = localDate time in ms - offset in ms
+      const utcTimestampMs = localDate.getTime() - madridOffset * 60 * 1000;
+
+      const unix = Math.floor(utcTimestampMs / 1000);
+
+      return `<t:${unix}:t> (${channels.join(', ')})`;
+    });
+
+    const embed = new EmbedBuilder()
+      .setColor('#ff46da')
+      .setDescription(`🕘 Horarios de apertura de LOD (se muestra en tu horario)\n\n${lodList.join('\n')}`);
+
+    await interaction.reply({ embeds: [embed], flags: 64 });
   }
-
-  const lodList = hours.map(({ time, channels }) => {
-    const unix = getUnixFromMadridTime(time);
-    return `<t:${unix}:t> (${channels.join(', ')})`;
-  });
-
-  const embed = new EmbedBuilder()
-    .setColor('#ff46da')
-    .setDescription(`🕘 Horarios de apertura de LOD (se muestra en tu horario)\n\n${lodList.join('\n')}`);
-
-  await interaction.reply({ embeds: [embed], flags: 64 });
-}
 });
 
+// Helper function to get the timezone offset in minutes of a date string in a given IANA timezone
+function getTimezoneOffsetInMinutes(dateString, timeZone) {
+  const dtf = new Intl.DateTimeFormat('en-US', {
+    hour12: false,
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+
+  const [{ value: year }, , { value: month }, , { value: day }, , { value: hour }, , { value: minute }, , { value: second }] = dtf.formatToParts(new Date(dateString));
+
+  // Construct a Date object in the target timezone (interpreted as local)
+  const asLocal = new Date(`${year}-${month}-${day}T${hour}:${minute}:${second}`);
+
+  // Calculate offset in minutes: difference between asLocal and dateString in UTC
+  return (asLocal.getTime() - new Date(dateString).getTime()) / (60 * 1000);
+}
 
 client.login(process.env.DISCORD_TOKEN);
 
