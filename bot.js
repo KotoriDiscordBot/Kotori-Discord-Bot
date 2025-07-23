@@ -106,28 +106,33 @@ client.on('interactionCreate', async (interaction) => {
       { time: '21:00', channels: ['CH4', 'CH5', 'CH6'] },
     ];
 
+    // Get current date in Spain timezone as base date
     const now = new Date();
-    const baseDate = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Madrid' }));
-    baseDate.setSeconds(0);
-    baseDate.setMilliseconds(0);
+    // Parse using Spain timezone by offsetting UTC time
+    // Instead of fancy libs, use this trick:
+
+    const baseDateSpain = new Date(now.toLocaleString('en-GB', { timeZone: 'Europe/Madrid' }));
+    baseDateSpain.setSeconds(0);
+    baseDateSpain.setMilliseconds(0);
 
     const lodList = hours.map(({ time, channels }) => {
       const [hour, minute] = time.split(':');
-      const lodDate = new Date(baseDate);
+      const lodDate = new Date(baseDateSpain);
       lodDate.setHours(parseInt(hour));
       lodDate.setMinutes(parseInt(minute));
 
       const unix = Math.floor(lodDate.getTime() / 1000);
-      return `${time} (${channels.join(', ')})`;
+      return `<t:${unix}:t> (${channels.join(', ')})`;
     });
 
     const embed = new EmbedBuilder()
       .setColor('#ff46da')
-      .setDescription(lodList.join('\n\n')); // double new line for spacing as you showed
+      .setDescription(lodList.join('\n\n'));
 
     await interaction.reply({ embeds: [embed], ephemeral: true });
   }
 });
+
 
 client.login(process.env.DISCORD_TOKEN);
 
