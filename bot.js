@@ -42,13 +42,17 @@ client.on('messageCreate', async (message) => {
 
     try {
       // Acknowledge the user
-      await message.reply('Holi, este es el bot de Kotori. Tu mensaje será reenviado a Kotori real y recibirás una respuesta cuando me sea posible. A no ser que seas Gum, en cuyo caso no responderé ✨');
+      await message.reply('Holi, este es el bot de Kotori. Tu mensaje será reenviado a Kotori real y recibirás una respuesta en cuanto sea posible. A no ser que seas Gum, en cuyo caso no responderé ✨');
 
       // Forward to your chosen channel
       const logChannel = await client.channels.fetch('1397418340074524847');
       if (logChannel && logChannel.isTextBased()) {
         console.log(`📤 [PID: ${process.pid}] Forwarding to channel: ${logChannel.name}`);
-        logChannel.send(`**${message.author.tag}** says: ${message.content}`);
+
+        // Compose the message with your format:
+        const username = message.author.username;
+        const userTag = message.author.tag.split('#')[0]; // part before #
+        logChannel.send(`Mensaje de ${username} (${userTag}): ${message.content}`);
       } else {
         console.log('⚠️ Could not find a valid text channel to forward to.');
       }
