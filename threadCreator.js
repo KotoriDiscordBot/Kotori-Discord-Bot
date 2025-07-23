@@ -55,8 +55,19 @@ module.exports = function setupSchedules(client) {
 
   console.log(`🕒 Daily job scheduled for 18:00 Buenos Aires time.`);
 
+    // Confirm the bot is alive at 17:50
+  schedule.scheduleJob({ rule: '0 50 17 * * *', tz: 'America/Argentina/Buenos_Aires' }, async () => {
+    try {
+      const confirmChannel = await client.channels.fetch('1208444259653521531');
+      await confirmChannel.send('El bot de Kotori continúa activo y preparado para abrir listas de raids dentro de 10 minutos 👑');
+      console.log(`[${new Date().toLocaleString()}] 🔄 Confirmación 17:50 enviada.`);
+    } catch (error) {
+      console.error(`[${new Date().toLocaleString()}] ⚠️ Error al enviar confirmación 17:50:`, error);
+    }
+  });
+
   // === CONFIRMATION MESSAGES ===
-  const confirmationTimes = [6, 14, 17];
+  const confirmationTimes = [6, 10, 14, 17];
   const confirmationChannelId = '1397497912421908500';
 
   for (const hour of confirmationTimes) {
