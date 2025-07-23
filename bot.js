@@ -107,20 +107,19 @@ client.on('interactionCreate', async (interaction) => {
 
       const unix = Math.floor(lodDate.getTime() / 1000);
 
-      // Pad hour to 2 digits for alignment
+      // Pad hour and minute to 2 digits for alignment
       const paddedHour = hour.padStart(2, '0');
-      const paddedTime = `${paddedHour}:${minute}`;
+      const paddedMinute = minute.padStart(2, '0');
+      const paddedTime = `${paddedHour}:${paddedMinute}`;
 
-      // Use the padded time in the display, but keep the timestamp with the original time
-      // We'll replace the original time text with paddedTime in the final string
+      // The <t:unix:t> will show time in user's local timezone but formatted, so we replace the time string in the output with paddedTime
       return `<t:${unix}:t> - ${channels.join(', ')}`.replace(time, paddedTime);
     });
 
     const embedMessage = `🕘 **Horarios de apertura de LOD (se muestra en tu horario)**\n\n${lodList.join('\n')}`;
 
-    await interaction.reply({ content: embedMessage, ephemeral: true }); // Ephemeral reply
+    await interaction.reply({ content: embedMessage, flags: 64 }); // ephemeral reply
   }
 });
 
 client.login(process.env.DISCORD_TOKEN);
-
