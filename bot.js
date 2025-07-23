@@ -159,7 +159,7 @@ if (interaction.commandName === 'caligor') {
     const unix = Math.floor(utcDate.getTime() / 1000);
 
     const label = index === 0 ? 'Primer Caligor' : 'Segundo Caligor';
-    return `${label}: <t:${unix}:t>`;
+    return `<t:${unix}:t> (${label})`;
   });
 
   const embed = new EmbedBuilder()
