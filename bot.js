@@ -106,20 +106,18 @@ client.on('interactionCreate', async (interaction) => {
       { time: '21:00', channels: ['CH4', 'CH5', 'CH6'] },
     ];
 
-    // Get current date in Spain timezone as base date
+    // Extract day/month/year for Spain timezone
     const now = new Date();
-    // Parse using Spain timezone by offsetting UTC time
-    // Instead of fancy libs, use this trick:
+    const spainDateString = now.toLocaleDateString('en-GB', { timeZone: 'Europe/Madrid' }); // e.g. "23/07/2025"
+    const [day, month, year] = spainDateString.split('/').map(Number);
 
-    const baseDateSpain = new Date(now.toLocaleString('en-GB', { timeZone: 'Europe/Madrid' }));
-    baseDateSpain.setSeconds(0);
-    baseDateSpain.setMilliseconds(0);
+    // Create base date at midnight Spain time (local time, but adjusted manually)
+    const baseDateSpain = new Date(year, month - 1, day, 0, 0, 0, 0);
 
     const lodList = hours.map(({ time, channels }) => {
-      const [hour, minute] = time.split(':');
+      const [hour, minute] = time.split(':').map(Number);
       const lodDate = new Date(baseDateSpain);
-      lodDate.setHours(parseInt(hour));
-      lodDate.setMinutes(parseInt(minute));
+      lodDate.setHours(hour, minute, 0, 0);
 
       const unix = Math.floor(lodDate.getTime() / 1000);
       return `<t:${unix}:t> (${channels.join(', ')})`;
