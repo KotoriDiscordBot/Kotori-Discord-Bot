@@ -124,7 +124,13 @@ client.on('interactionCreate', async (interaction) => {
       .setColor('#ff46da')
       .setDescription(`🕘 Horarios de apertura de LOD (se muestra en tu horario)\n\n${lodList.join('\n')}`);
 
-    await interaction.reply({ embeds: [embed], flags: 64 });
+    if (interaction.guild) {
+      // In a guild: ephemeral reply using flag 64
+      await interaction.reply({ embeds: [embed], flags: 64 });
+    } else {
+      // In DM: normal reply (visible to user)
+      await interaction.reply({ embeds: [embed] });
+    }
   }
 });
 
