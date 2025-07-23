@@ -25,30 +25,21 @@ client.once('ready', () => {
   setupSchedules(client);
 });
 
-// 📨 Listen for DMs and forward them
+// 📨 Cache to prevent duplicate DM forwarding
+const recentDMs = new Set();
+
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
 
   // Check if it's a DM
   if (message.channel.type === ChannelType.DM) {
+    // Avoid duplicate handling
+    if (recentDMs.has(message.id)) return;
+    recentDMs.add(message.id);
+    setTimeout(() => recentDMs.delete(message.id), 30 * 1000); // Keep for 30s
+
     console.log(`💬 [PID: ${process.pid}] DM from ${message.author.tag}: ${message.content}`);
 
     try {
       // Acknowledge the user
-      await message.reply('Holi, este usuario corresponde al bot de Kotori, no a la Kotori real. No te preocupes, tu mensaje será reenviado a mí y te responderé cuando me sea posible. A no ser que seas Gum, en cuyo caso no responderé ✨');
-
-      // Forward to your chosen channel
-      const logChannel = await client.channels.fetch('1397418340074524847');
-      if (logChannel && logChannel.isTextBased()) {
-        console.log(`📤 [PID: ${process.pid}] Forwarding to channel: ${logChannel.name}`);
-        logChannel.send(`**${message.author.tag}** says: ${message.content}`);
-      } else {
-        console.log('⚠️ Could not find a valid text channel to forward to.');
-      }
-    } catch (error) {
-      console.error('❌ Error forwarding DM:', error);
-    }
-  }
-});
-
-client.login(process.env.DISCORD_TOKEN);
+      await message.reply('Holi, este usuario corresponde al bot de Kotori, no a la Kotori real. No te preocupes, tu mensaje será reenviado a mí y te responderé cuando me sea posible. A no ser que seas Gum, en cuyo caso no responde
