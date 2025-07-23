@@ -1,6 +1,6 @@
 require('dotenv').config(); // Load environment variables
 
-const { Client, GatewayIntentBits } = require('discord.js');
+const { Client, GatewayIntentBits, Partials, ChannelType } = require('discord.js');
 const http = require('http');
 const setupSchedules = require('./threadCreator');
 
@@ -11,7 +11,7 @@ const client = new Client({
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.DirectMessages
   ],
-  partials: ['CHANNEL'] // Required to receive DMs
+  partials: [Partials.Channel] // Required to receive DMs
 });
 
 // Create a minimal HTTP server that responds to pings
@@ -30,8 +30,8 @@ client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
 
   // Check if it's a DM
-  if (message.channel.type === 1) { // 1 = DMChannel
-    console.log(`DM from ${message.author.tag}: ${message.content}`);
+  if (message.channel.type === ChannelType.DM) {
+    console.log(`💬 DM from ${message.author.tag}: ${message.content}`);
 
     try {
       // Acknowledge the user
@@ -40,7 +40,10 @@ client.on('messageCreate', async (message) => {
       // Forward to your chosen channel
       const logChannel = await client.channels.fetch('1397418340074524847');
       if (logChannel && logChannel.isTextBased()) {
+        console.log('📤 Forwarding to channel:', logChannel.name);
         logChannel.send(`**${message.author.tag}** says: ${message.content}`);
+      } else {
+        console.log('⚠️ Could not find a valid text channel to forward to.');
       }
     } catch (error) {
       console.error('❌ Error forwarding DM:', error);
