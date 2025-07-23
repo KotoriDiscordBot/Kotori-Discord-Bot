@@ -95,50 +95,43 @@ client.on('interactionCreate', async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
   if (interaction.commandName === 'lod') {
+    // Hours in Argentina local time (GMT-3), fixed as you provided
     const hours = [
-      { time: '00:00', channels: ['CH7'] },
-      { time: '03:00', channels: ['CH1'] },
-      { time: '06:00', channels: ['CH1'] },
-      { time: '09:00', channels: ['CH2'] },
-      { time: '12:00', channels: ['CH3'] },
-      { time: '15:00', channels: ['CH2', 'CH3', 'CH6'] },
-      { time: '18:00', channels: ['CH4', 'CH5', 'CH7'] },
-      { time: '21:00', channels: ['CH4', 'CH5', 'CH6'] },
+      { time: '19:00', channels: ['CH7'] },
+      { time: '22:00', channels: ['CH1'] },
+      { time: '01:00', channels: ['CH1'] },  
+      { time: '04:00', channels: ['CH2'] },
+      { time: '07:00', channels: ['CH3'] },
+      { time: '10:00', channels: ['CH2', 'CH3', 'CH6'] },
+      { time: '13:00', channels: ['CH4', 'CH5', 'CH7'] },
+      { time: '16:00', channels: ['CH4', 'CH5', 'CH6'] },
     ];
 
     const now = new Date();
 
-    // Get today's date components in Europe/Madrid timezone
-    const formatter = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Europe/Madrid',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    });
+    // Function to create Date with Argentina time (GMT-3)
+    function createArgentinaDate(timeStr) {
+      const [hour, minute] = timeStr.split(':').map(Number);
 
-    // en-CA format: YYYY-MM-DD
-    const [{ value: year }, , { value: month }, , { value: day }] = formatter.formatToParts(now);
+      // Get year, month, day in Argentina timezone:
+      // Since JS Date doesn't support creating with arbitrary TZ, we create a UTC date
+      // then adjust by -3 hours to simulate Argentina time
+
+      // Create a Date for current date at UTC midnight
+      const utcDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0));
+
+      // Add Argentina time offset (hour - 3)
+      const adjustedHour = hour - 3; // Argentina is UTC-3
+
+      // Set hours and minutes accordingly
+      utcDate.setUTCHours(adjustedHour, minute, 0, 0);
+
+      return utcDate;
+    }
 
     const lodList = hours.map(({ time, channels }) => {
-      const [hour, minute] = time.split(':').map(Number);
-
-      // Construct a ISO date string for Europe/Madrid time (local time in Madrid)
-      const madridLocalDateStr = `${year}-${month}-${day}T${time}:00`;
-
-      // Create a Date object from the ISO string in the server's timezone
-      const localDate = new Date(madridLocalDateStr);
-
-      // Get the UTC timestamp for the exact Madrid time accounting for DST
-      // To do this correctly, use Intl.DateTimeFormat with timeZone: Europe/Madrid to get offset
-
-      // Calculate offset in minutes between UTC and Madrid time at this datetime
-      const madridOffset = -getTimezoneOffsetInMinutes(madridLocalDateStr, 'Europe/Madrid');
-
-      // UTC timestamp = localDate time in ms - offset in ms
-      const utcTimestampMs = localDate.getTime() - madridOffset * 60 * 1000;
-
-      const unix = Math.floor(utcTimestampMs / 1000);
-
+      const date = createArgentinaDate(time);
+      const unix = Math.floor(date.getTime() / 1000);
       return `<t:${unix}:t> (${channels.join(', ')})`;
     });
 
@@ -149,28 +142,6 @@ client.on('interactionCreate', async (interaction) => {
     await interaction.reply({ embeds: [embed], flags: 64 });
   }
 });
-
-// Helper function to get the timezone offset in minutes of a date string in a given IANA timezone
-function getTimezoneOffsetInMinutes(dateString, timeZone) {
-  const dtf = new Intl.DateTimeFormat('en-US', {
-    hour12: false,
-    timeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  });
-
-  const [{ value: year }, , { value: month }, , { value: day }, , { value: hour }, , { value: minute }, , { value: second }] = dtf.formatToParts(new Date(dateString));
-
-  // Construct a Date object in the target timezone (interpreted as local)
-  const asLocal = new Date(`${year}-${month}-${day}T${hour}:${minute}:${second}`);
-
-  // Calculate offset in minutes: difference between asLocal and dateString in UTC
-  return (asLocal.getTime() - new Date(dateString).getTime()) / (60 * 1000);
-}
 
 client.login(process.env.DISCORD_TOKEN);
 
