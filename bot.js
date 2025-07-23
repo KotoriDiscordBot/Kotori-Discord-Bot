@@ -126,8 +126,8 @@ client.on('interactionCreate', async (interaction) => {
 
     const embed = new EmbedBuilder()
   .setColor('#ff46da')
-  .setTitle('🕘 Horarios de LOD en tu hora local')
-  .setDescription(lodList.join('\n'));
+  .setTitle('Horarios de LOD 🕘')
+  .setDescription(`Las horas que se muestran corresponden a tu zona horaria\n\n${lodList.join('\n')}`);
 
 
     if (interaction.guild) {
