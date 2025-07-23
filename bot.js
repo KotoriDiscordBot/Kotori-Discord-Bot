@@ -11,7 +11,7 @@ const {
   EmbedBuilder
 } = require('discord.js');
 const http = require('http');
-const path = require('path');  // <-- Added this line to handle file paths
+const path = require('path');  // <-- For file paths
 const setupSchedules = require('./threadCreator');
 
 const client = new Client({
@@ -41,12 +41,16 @@ http.createServer((req, res) => {
   res.end('Bot is awake!');
 }).listen(process.env.PORT || 3000);
 
-// Register slash command /lod, /caligor, and /fichashardcore
+// Register slash commands including /comandos at the top
 client.once('ready', async () => {
   console.log(`✅ Bot is online and ready! [PID: ${process.pid}]`);
   setupSchedules(client);
 
   const commands = [
+    new SlashCommandBuilder()
+      .setName('comandos')
+      .setDescription('Muestra una lista de todos los comandos disponibles y sus funciones')
+      .toJSON(),
     new SlashCommandBuilder()
       .setName('lod')
       .setDescription('Muestra los horarios de apertura de LOD (en tu zona horaria)')
@@ -117,6 +121,22 @@ client.on('messageCreate', async (message) => {
 client.on('interactionCreate', async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
+  // Comandos command
+  if (interaction.commandName === 'comandos') {
+    const embed = new EmbedBuilder()
+      .setColor('#ff46da')
+      .setTitle('Lista de comandos')
+      .setDescription([
+        '**/comandos** - Muestra una lista de todos los comandos disponibles y sus funciones',
+        '**/lod** - Muestra los horarios de apertura de LOD (en tu zona horaria)',
+        '**/caligor** - Muestra los horarios de Caligor (en tu zona horaria)',
+        '**/fichashardcore** - Controla cuántas fichas te faltan para el libro de ataque. Excel hecho por Kurapikaa'
+      ].join('\n'));
+
+    await smartReply(interaction, embed);
+    return;
+  }
+
   // LOD command
   if (interaction.commandName === 'lod') {
     const hours = [
@@ -148,6 +168,7 @@ client.on('interactionCreate', async (interaction) => {
       .setDescription(`\n\n${lodList.join('\n')}`);
 
     await smartReply(interaction, embed);
+    return;
   }
 
   // Caligor command
@@ -173,6 +194,7 @@ client.on('interactionCreate', async (interaction) => {
       .setDescription(`Sábados y domingos\n\n${caligorList.join('\n')}`);
 
     await smartReply(interaction, embed);
+    return;
   }
 
   // Fichas Hardcore Excel file command
@@ -184,6 +206,7 @@ client.on('interactionCreate', async (interaction) => {
       files: [filePath],
       flags: undefined // Force non-ephemeral message in guilds
     });
+    return;
   }
 });
 
