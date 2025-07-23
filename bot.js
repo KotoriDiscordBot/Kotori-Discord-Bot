@@ -35,7 +35,7 @@ client.on('messageCreate', async (message) => {
 
     try {
       // Acknowledge the user
-      await message.reply('📬 Your message has been forwarded to the admin.');
+      await message.reply('Holi, este usuario corresponde al bot de Kotori, no a la Kotori real. No te preocupes, tu mensaje será reenviado a mí y te responderé cuando me sea posible. A no ser que seas Gum, en cuyo caso no responderé ✨');
 
       // Forward to your chosen channel
       const logChannel = await client.channels.fetch('1397418340074524847');
