@@ -57,7 +57,7 @@ client.once('ready', async () => {
       .toJSON(),
     new SlashCommandBuilder()
       .setName('fichashardcore')
-      .setDescription('Archivo de Excel para ayudar con el control de fichas para el libro de 100 ataque. Hecho por Kurapikaa')
+      .setDescription('Controla cuántas fichas te faltan para el libro de ataque. Excel hecho por Kurapikaa')
       .toJSON()
   ];
 
