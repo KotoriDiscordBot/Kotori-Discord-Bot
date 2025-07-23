@@ -11,6 +11,7 @@ const {
   EmbedBuilder
 } = require('discord.js');
 const http = require('http');
+const path = require('path');  // <-- Added this line to handle file paths
 const setupSchedules = require('./threadCreator');
 
 const client = new Client({
@@ -40,7 +41,7 @@ http.createServer((req, res) => {
   res.end('Bot is awake!');
 }).listen(process.env.PORT || 3000);
 
-// Register slash command /lod and /caligor
+// Register slash command /lod, /caligor, and /fichashardcore
 client.once('ready', async () => {
   console.log(`✅ Bot is online and ready! [PID: ${process.pid}]`);
   setupSchedules(client);
@@ -53,6 +54,10 @@ client.once('ready', async () => {
     new SlashCommandBuilder()
       .setName('caligor')
       .setDescription('Muestra los horarios de Caligor (en tu zona horaria)')
+      .toJSON(),
+    new SlashCommandBuilder()
+      .setName('fichashardcore')
+      .setDescription('Archivo de Excel para ayudar con el control de fichas para el libro de 100 ataque. Hecho por Kurapikaa')
       .toJSON()
   ];
 
@@ -145,30 +150,41 @@ client.on('interactionCreate', async (interaction) => {
     await smartReply(interaction, embed);
   }
 
-// Caligor command
-if (interaction.commandName === 'caligor') {
-  const times = ['15:00', '18:00'];
-  const now = new Date();
-  const year = now.getUTCFullYear();
-  const month = now.getUTCMonth();
-  const day = now.getUTCDate();
+  // Caligor command
+  if (interaction.commandName === 'caligor') {
+    const times = ['15:00', '18:00'];
+    const now = new Date();
+    const year = now.getUTCFullYear();
+    const month = now.getUTCMonth();
+    const day = now.getUTCDate();
 
-  const caligorList = times.map((time, index) => {
-    const [hour, minute] = time.split(':').map(Number);
-    const utcDate = new Date(Date.UTC(year, month, day, hour, minute, 0));
-    const unix = Math.floor(utcDate.getTime() / 1000);
+    const caligorList = times.map((time, index) => {
+      const [hour, minute] = time.split(':').map(Number);
+      const utcDate = new Date(Date.UTC(year, month, day, hour, minute, 0));
+      const unix = Math.floor(utcDate.getTime() / 1000);
 
-    const label = index === 0 ? 'Primer Caligor' : 'Segundo Caligor';
-    return `<t:${unix}:t> (${label})`;
-  });
+      const label = index === 0 ? 'Primer Caligor' : 'Segundo Caligor';
+      return `<t:${unix}:t> (${label})`;
+    });
 
-  const embed = new EmbedBuilder()
-    .setColor('#ff46da')
-    .setTitle('Horarios de Caligor')
-    .setDescription(`Sábados y domingos\n\n${caligorList.join('\n')}`);
+    const embed = new EmbedBuilder()
+      .setColor('#ff46da')
+      .setTitle('Horarios de Caligor')
+      .setDescription(`Sábados y domingos\n\n${caligorList.join('\n')}`);
 
-  await smartReply(interaction, embed);
-}
+    await smartReply(interaction, embed);
+  }
+
+  // Fichas Hardcore Excel file command
+  if (interaction.commandName === 'fichashardcore') {
+    const filePath = path.join(__dirname, 'FichasHC.xlsx'); // Adjust path if necessary
+
+    await interaction.reply({
+      content: 'Aquí tienes el archivo Excel para el control de fichas 📄',
+      files: [filePath],
+      flags: interaction.guild && USE_EPHEMERAL_IN_GUILDS ? 64 : undefined
+    });
+  }
 });
 
 client.login(process.env.DISCORD_TOKEN);
