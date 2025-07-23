@@ -37,7 +37,7 @@ client.once('ready', async () => {
   const commands = [
     new SlashCommandBuilder()
       .setName('lod')
-      .setDescription('Muestra los horarios de apertura de LoD (en tu zona horaria)')
+      .setDescription('Muestra los horarios de apertura de LOD (en tu zona horaria)')
       .toJSON()
   ];
 
