@@ -125,8 +125,10 @@ client.on('interactionCreate', async (interaction) => {
     });
 
     const embed = new EmbedBuilder()
-      .setColor('#ff46da')
-      .setDescription(`🕘 Horarios de apertura de LOD (se muestra en tu horario)\n\n${lodList.join('\n')}`);
+  .setColor('#ff46da')
+  .setTitle('🕘 Horarios de LOD en tu hora local')
+  .setDescription(lodList.join('\n'));
+
 
     if (interaction.guild) {
       // In a guild: ephemeral reply using flag 64
