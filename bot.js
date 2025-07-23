@@ -127,7 +127,7 @@ client.on('interactionCreate', async (interaction) => {
     const embed = new EmbedBuilder()
   .setColor('#ff46da')
   .setTitle('Horarios de apertura de LOD')
-  .setDescription(`\n${lodList.join('\n')}`);
+  .setDescription(`\n\n${lodList.join('\n')}`);
 
 
     if (interaction.guild) {
