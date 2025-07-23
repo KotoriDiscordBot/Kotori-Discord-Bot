@@ -177,12 +177,12 @@ client.on('interactionCreate', async (interaction) => {
 
   // Fichas Hardcore Excel file command
   if (interaction.commandName === 'fichashardcore') {
-    const filePath = path.join(__dirname, 'FichasHC.xlsx'); // Adjust path if necessary
+    const filePath = path.join(__dirname, 'FichasHC.xlsx'); // Correct file path
 
     await interaction.reply({
-      content: 'Aquí tienes el archivo Excel para el control de fichas 📄',
+      content: 'Rellena este archivo con tus fichas HC individuales y tus fichas HC de acto para saber cuántas fichas te faltan para el libro de ataque',
       files: [filePath],
-      flags: interaction.guild && USE_EPHEMERAL_IN_GUILDS ? 64 : undefined
+      flags: undefined // Force non-ephemeral message in guilds
     });
   }
 });
