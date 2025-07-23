@@ -37,7 +37,7 @@ client.once('ready', async () => {
   const commands = [
     new SlashCommandBuilder()
       .setName('lod')
-      .setDescription('Muestra los horarios de apertura de LOD (en tu zona horaria)')
+      .setDescription('Muestra los horarios de apertura de LoD (en tu zona horaria)')
       .toJSON()
   ];
 
@@ -127,7 +127,7 @@ client.on('interactionCreate', async (interaction) => {
     const embed = new EmbedBuilder()
   .setColor('#ff46da')
   .setTitle('Horarios de apertura de LOD')
-  .setDescription(`Las horas que se muestran corresponden a tu zona horaria\n\n${lodList.join('\n')}`);
+  .setDescription(`\n${lodList.join('\n')}`);
 
 
     if (interaction.guild) {
