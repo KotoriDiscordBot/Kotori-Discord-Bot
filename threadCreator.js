@@ -11,49 +11,48 @@ module.exports = function setupSchedules(client) {
   }
 
   // === MAIN DAILY JOB ===
-  const job = schedule.scheduleJob({ rule: '0 0 18 * * *', tz: 'America/Argentina/Buenos_Aires' }, async () => {
-    try {
-      // === THREAD 1 ===
-      const channel1 = await client.channels.fetch('1369526757673144391');
-      const thread1 = await channel1.threads.create({
-        name: 'Primera hora',
-        autoArchiveDuration: 10080,
-        reason: 'Daily raid thread 1',
-      });
-      await thread1.send('+1');
+const job = schedule.scheduleJob({ rule: '0 0 18 * * *', tz: 'America/Argentina/Buenos_Aires' }, async () => {
+  try {
+    const notifyChannel = await client.channels.fetch('1208444259653521531');
+    const threadConfigs = [
+      { id: '1369526757673144391', name: 'Primera hora', reason: 'Daily raid thread 1' },
+      { id: '1369526825386246206', name: 'Segunda hora', reason: 'Daily raid thread 2' },
+      { id: '1369526941282996284', name: 'Tercera hora', reason: 'Daily raid thread 3' }
+    ];
 
-      // === THREAD 2 ===
-      const channel2 = await client.channels.fetch('1369526825386246206');
-      const thread2 = await channel2.threads.create({
-        name: 'Segunda hora',
-        autoArchiveDuration: 10080,
-        reason: 'Daily raid thread 2',
-      });
-      await thread2.send('+1');
+    let anyThreadCreated = false;
 
-      // === THREAD 3 ===
-      const channel3 = await client.channels.fetch('1369526941282996284');
-      const thread3 = await channel3.threads.create({
-        name: 'Tercera hora',
-        autoArchiveDuration: 10080,
-        reason: 'Daily raid thread 3',
-      });
-      await thread3.send('+1');
+    for (const config of threadConfigs) {
+      const channel = await client.channels.fetch(config.id);
+      const messages = await channel.messages.fetch({ limit: 1 });
 
-      // === NOTIFY MESSAGE ===
-      const notifyChannel = await client.channels.fetch('1208444259653521531');
+      if (!messages.size) continue; // Skip if there are no messages
+
+      const lastMessage = messages.first();
+      const thread = await lastMessage.startThread({
+        name: config.name,
+        autoArchiveDuration: 10080,
+        reason: config.reason,
+      });
+
+      await thread.send('+1');
+      anyThreadCreated = true;
+    }
+
+    if (anyThreadCreated) {
       await notifyChannel.send({
         content: 'Listas de raid abiertas @everyone',
         allowedMentions: { parse: ['everyone'] }
       });
-
-      console.log(`[${new Date().toLocaleString()}] ✅ Threads created and message sent.`);
-    } catch (error) {
-      console.error(`[${new Date().toLocaleString()}] ❌ Error during schedule:`, error);
     }
-  });
 
-  console.log(`🕒 Daily job scheduled for 18:00 Buenos Aires time.`);
+    console.log(`[${new Date().toLocaleString()}] ✅ Threads checked/created and notify sent (if needed).`);
+  } catch (error) {
+    console.error(`[${new Date().toLocaleString()}] ❌ Error during schedule:`, error);
+  }
+});
+
+console.log(`🕒 Daily job scheduled for 18:00 Buenos Aires time.`);
 
 // Confirm the bot is alive at 17:50 with embed
 schedule.scheduleJob({ rule: '0 50 17 * * *', tz: 'America/Argentina/Buenos_Aires' }, async () => {
