@@ -10,33 +10,33 @@ module.exports = function setupSchedules(client) {
       .toDate();
   }
 
-  // Schedule it to run every day at 18:00 Argentina time
+  // === MAIN DAILY JOB ===
   const job = schedule.scheduleJob({ rule: '0 0 18 * * *', tz: 'America/Argentina/Buenos_Aires' }, async () => {
     try {
       // === THREAD 1 ===
       const channel1 = await client.channels.fetch('1369526757673144391');
-      const message1 = await channel1.messages.fetch('1397107841218908323');
-      const thread1 = await message1.startThread({
+      const thread1 = await channel1.threads.create({
         name: 'Primera hora',
-        autoArchiveDuration: 10080
+        autoArchiveDuration: 10080,
+        reason: 'Daily raid thread 1',
       });
       await thread1.send('+1');
 
       // === THREAD 2 ===
       const channel2 = await client.channels.fetch('1369526825386246206');
-      const message2 = await channel2.messages.fetch('1397107892414320710');
-      const thread2 = await message2.startThread({
+      const thread2 = await channel2.threads.create({
         name: 'Segunda hora',
-        autoArchiveDuration: 10080
+        autoArchiveDuration: 10080,
+        reason: 'Daily raid thread 2',
       });
       await thread2.send('+1');
 
       // === THREAD 3 ===
       const channel3 = await client.channels.fetch('1369526941282996284');
-      const message3 = await channel3.messages.fetch('1397107962048417842');
-      const thread3 = await message3.startThread({
+      const thread3 = await channel3.threads.create({
         name: 'Tercera hora',
-        autoArchiveDuration: 10080
+        autoArchiveDuration: 10080,
+        reason: 'Daily raid thread 3',
       });
       await thread3.send('+1');
 
@@ -54,4 +54,24 @@ module.exports = function setupSchedules(client) {
   });
 
   console.log(`🕒 Daily job scheduled for 18:00 Buenos Aires time.`);
+
+  // === CONFIRMATION MESSAGES ===
+  const confirmationTimes = [6, 14, 17];
+  const confirmationChannelId = '1397497912421908500';
+
+  for (const hour of confirmationTimes) {
+    schedule.scheduleJob({ rule: `0 0 ${hour} * * *`, tz: 'America/Argentina/Buenos_Aires' }, async () => {
+      try {
+        const channel = await client.channels.fetch(confirmationChannelId);
+        await channel.send('El bot de Kotori se encuentra funcionando correctamente ✨');
+        console.log(`[${new Date().toLocaleString()}] ✅ Confirmation message sent at ${hour}:00`);
+      } catch (error) {
+        console.error(`[${new Date().toLocaleString()}] ❌ Error sending confirmation at ${hour}:00:`, error);
+      }
+    });
+
+    console.log(`🕒 Confirmation message scheduled for ${hour}:00 Buenos Aires time.`);
+  }
 };
+
+
