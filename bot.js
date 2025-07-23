@@ -34,12 +34,16 @@ client.once('ready', async () => {
   console.log(`✅ Bot is online and ready! [PID: ${process.pid}]`);
   setupSchedules(client);
 
-  const commands = [
-    new SlashCommandBuilder()
-      .setName('lod')
-      .setDescription('Muestra los horarios de apertura de LOD (en tu zona horaria)')
-      .toJSON()
-  ];
+const commands = [
+  new SlashCommandBuilder()
+    .setName('lod')
+    .setDescription('Muestra los horarios de apertura de LOD (en tu zona horaria)')
+    .toJSON(),
+  new SlashCommandBuilder()
+    .setName('caligor')
+    .setDescription('Muestra los horarios de Caligor (en tu zona horaria)')
+    .toJSON()
+];
 
   const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
 
@@ -98,6 +102,7 @@ client.on('messageCreate', async (message) => {
 client.on('interactionCreate', async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
+  // LOD command
   if (interaction.commandName === 'lod') {
     const hours = [
       { time: '22:00', channels: ['CH7'] },
@@ -111,10 +116,8 @@ client.on('interactionCreate', async (interaction) => {
     ];
 
     const now = new Date();
-
-    // Use today's UTC year, month, day
     const year = now.getUTCFullYear();
-    const month = now.getUTCMonth(); // 0-based
+    const month = now.getUTCMonth();
     const day = now.getUTCDate();
 
     const lodList = hours.map(({ time, channels }) => {
@@ -125,9 +128,36 @@ client.on('interactionCreate', async (interaction) => {
     });
 
     const embed = new EmbedBuilder()
-  .setColor('#ff46da')
-  .setTitle('Horarios de apertura de LOD')
-  .setDescription(`\n\n${lodList.join('\n')}`);
+      .setColor('#ff46da')
+      .setTitle('Horarios de LOD')
+      .setDescription(`\n\n${lodList.join('\n')}`);
+
+    await interaction.reply({ embeds: [embed] });
+  }
+
+  // Caligor command
+  if (interaction.commandName === 'caligor') {
+    const times = ['15:00', '18:00'];
+    const now = new Date();
+    const year = now.getUTCFullYear();
+    const month = now.getUTCMonth();
+    const day = now.getUTCDate();
+
+    const caligorList = times.map((time) => {
+      const [hour, minute] = time.split(':').map(Number);
+      const utcDate = new Date(Date.UTC(year, month, day, hour, minute, 0));
+      const unix = Math.floor(utcDate.getTime() / 1000);
+      return `<t:${unix}:t>`;
+    });
+
+    const embed = new EmbedBuilder()
+      .setColor('#ff46da')
+      .setTitle('Horarios de Caligor')
+      .setDescription(`Sábados y domingos\n\n${caligorList.join('\n')}`);
+
+    await interaction.reply({ embeds: [embed] });
+  }
+});
 
 
     if (interaction.guild) {
