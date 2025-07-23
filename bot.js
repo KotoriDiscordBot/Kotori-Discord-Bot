@@ -95,56 +95,62 @@ client.on('interactionCreate', async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
   if (interaction.commandName === 'lod') {
-    const hours = [
-      { time: '00:00', channels: ['CH7'] },
-      { time: '03:00', channels: ['CH1'] },
-      { time: '06:00', channels: ['CH1'] },
-      { time: '09:00', channels: ['CH2'] },
-      { time: '12:00', channels: ['CH3'] },
-      { time: '15:00', channels: ['CH2', 'CH3', 'CH6'] },
-      { time: '18:00', channels: ['CH4', 'CH5', 'CH7'] },
-      { time: '21:00', channels: ['CH4', 'CH5', 'CH6'] },
-    ];
+  const hours = [
+    { time: '00:00', channels: ['CH7'] },
+    { time: '03:00', channels: ['CH1'] },
+    { time: '06:00', channels: ['CH1'] },
+    { time: '09:00', channels: ['CH2'] },
+    { time: '12:00', channels: ['CH3'] },
+    { time: '15:00', channels: ['CH2', 'CH3', 'CH6'] },
+    { time: '18:00', channels: ['CH4', 'CH5', 'CH7'] },
+    { time: '21:00', channels: ['CH4', 'CH5', 'CH6'] },
+  ];
 
-    // Function to get Spain's current UTC offset (1 or 2)
-    function getSpainOffset(date) {
-      const options = { timeZone: 'Europe/Madrid', timeZoneName: 'short' };
-      const formatter = new Intl.DateTimeFormat('en-US', options);
-      const parts = formatter.formatToParts(date);
-      const tzPart = parts.find(part => part.type === 'timeZoneName')?.value || '';
-      const match = tzPart.match(/GMT([+-]\d+)/);
-      if (match) {
-        return parseInt(match[1], 10);
-      }
-      return 1; // fallback CET
-    }
+  // Use today's date in Europe/Madrid as a string
+  const now = new Date();
 
-    const now = new Date();
-    const spainOffset = getSpainOffset(now); // 1 or 2
+  // Get the current date in Europe/Madrid timezone as YYYY-MM-DD
+  const spainDateParts = now.toLocaleString('en-GB', { timeZone: 'Europe/Madrid' }).split(',')[0].split('/');
+  // Day/Month/Year from en-GB date format
+  const [day, month, year] = spainDateParts.map(Number);
 
-    // Extract day/month/year for Spain timezone
-    const spainDateString = now.toLocaleDateString('en-GB', { timeZone: 'Europe/Madrid' });
-    const [day, month, year] = spainDateString.split('/').map(Number);
+  // Helper to parse Europe/Madrid time string into a Date (in UTC)
+  function getUnixFromMadridTime(timeStr) {
+    // Compose a date string with Spain local time
+    const [hour, minute] = timeStr.split(':').map(Number);
+    // Construct a string that JS Date can parse as local in Europe/Madrid by using toLocaleString
+    // We build a date-time string and parse it with Spain TZ to get equivalent UTC time:
+    const madridDateString = new Date(Date.UTC(year, month - 1, day, hour, minute));
 
-    // Get base UTC midnight timestamp for Spain's current day
-    const baseDateUTC = Date.UTC(year, month - 1, day, 0, 0, 0, 0);
+    // To get correct UTC timestamp for that Europe/Madrid time, we:
+    // 1. Format the date as Europe/Madrid time (the one we want)
+    // 2. Parse it as if it were UTC so we get the correct offset applied
 
-    const lodList = hours.map(({ time, channels }) => {
-      const [hour, minute] = time.split(':').map(Number);
+    // Step 1: Format in Europe/Madrid timezone (this returns a string with local time)
+    const localSpainString = madridDateString.toLocaleString('en-GB', { timeZone: 'Europe/Madrid', hour12: false });
 
-      // Calculate the unix timestamp considering Spain's offset + hour
-      const timestamp = (baseDateUTC + ((spainOffset + hour) * 3600000) + (minute * 60000)) / 1000;
+    // Step 2: Parse back that string as if it were UTC time (hacky but works)
+    const [datePart, timePart] = localSpainString.split(', ');
+    const [d, m, y] = datePart.split('/').map(Number);
+    const [h, min] = timePart.split(':').map(Number);
 
-      return `<t:${Math.floor(timestamp)}:t> (${channels.join(', ')})`;
-    });
+    // Now create a date object in UTC with these parts
+    const utcDate = new Date(Date.UTC(y, m - 1, d, h, min));
 
-    const embed = new EmbedBuilder()
-      .setColor('#ff46da')
-      .setDescription(`🕘 Horarios de apertura de LOD (se muestra en tu horario)\n\n${lodList.join('\n')}`);
-
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    return Math.floor(utcDate.getTime() / 1000);
   }
-});
+
+  const lodList = hours.map(({ time, channels }) => {
+    const unix = getUnixFromMadridTime(time);
+    return `<t:${unix}:t> (${channels.join(', ')})`;
+  });
+
+  const embed = new EmbedBuilder()
+    .setColor('#ff46da')
+    .setDescription(`🕘 Horarios de apertura de LOD (se muestra en tu horario)\n\n${lodList.join('\n')}`);
+
+  await interaction.reply({ embeds: [embed], ephemeral: true });
+}
 
 
 
