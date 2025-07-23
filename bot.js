@@ -51,7 +51,6 @@ client.on('messageCreate', async (message) => {
 
   // Check if it's a DM
   if (message.channel.type === ChannelType.DM) {
-    // Avoid duplicate handling
     if (recentDMs.has(message.id)) return;
     recentDMs.add(message.id);
     setTimeout(() => recentDMs.delete(message.id), 30 * 1000); // Keep for 30s
@@ -107,18 +106,17 @@ client.on('interactionCreate', async (interaction) => {
 
       const unix = Math.floor(lodDate.getTime() / 1000);
 
-      // Pad hour and minute to 2 digits for alignment
-      const paddedHour = hour.padStart(2, '0');
-      const paddedMinute = minute.padStart(2, '0');
-      const paddedTime = `${paddedHour}:${paddedMinute}`;
+      // Channel string padded to 12 chars for alignment
+      const channelsStr = channels.join(', ').padEnd(12, ' ');
 
-      // The <t:unix:t> will show time in user's local timezone but formatted, so we replace the time string in the output with paddedTime
-      return `<t:${unix}:t> - ${channels.join(', ')}`.replace(time, paddedTime);
+      // Return line with Discord timestamp + dash + padded channels string
+      return `<t:${unix}:t>  -  ${channelsStr}`;
     });
 
-    const embedMessage = `🕘 **Horarios de apertura de LOD (se muestra en tu horario)**\n\n${lodList.join('\n')}`;
+    const embedMessage = `🕘 Horarios de apertura de LOD (se muestra en tu horario)\n\n` + '```' + lodList.join('\n') + '```';
 
-    await interaction.reply({ content: embedMessage, flags: 64 }); // ephemeral reply
+    // Use flags: 64 for ephemeral reply (instead of deprecated ephemeral option)
+    await interaction.reply({ content: embedMessage, flags: 64 });
   }
 });
 
