@@ -106,26 +106,41 @@ client.on('interactionCreate', async (interaction) => {
       { time: '21:00', channels: ['CH4', 'CH5', 'CH6'] },
     ];
 
-    // Extract day/month/year for Spain timezone
+    // Function to get Spain's current UTC offset (1 or 2)
+    function getSpainOffset(date) {
+      const options = { timeZone: 'Europe/Madrid', timeZoneName: 'short' };
+      const formatter = new Intl.DateTimeFormat('en-US', options);
+      const parts = formatter.formatToParts(date);
+      const tzPart = parts.find(part => part.type === 'timeZoneName')?.value || '';
+      const match = tzPart.match(/GMT([+-]\d+)/);
+      if (match) {
+        return parseInt(match[1], 10);
+      }
+      return 1; // fallback CET
+    }
+
     const now = new Date();
-    const spainDateString = now.toLocaleDateString('en-GB', { timeZone: 'Europe/Madrid' }); // e.g. "23/07/2025"
+    const spainOffset = getSpainOffset(now); // 1 or 2
+
+    // Extract day/month/year for Spain timezone
+    const spainDateString = now.toLocaleDateString('en-GB', { timeZone: 'Europe/Madrid' });
     const [day, month, year] = spainDateString.split('/').map(Number);
 
-    // Create base date at midnight Spain time (local time, but adjusted manually)
-    const baseDateSpain = new Date(year, month - 1, day, 0, 0, 0, 0);
+    // Get base UTC midnight timestamp for Spain's current day
+    const baseDateUTC = Date.UTC(year, month - 1, day, 0, 0, 0, 0);
 
     const lodList = hours.map(({ time, channels }) => {
       const [hour, minute] = time.split(':').map(Number);
-      const lodDate = new Date(baseDateSpain);
-      lodDate.setHours(hour, minute, 0, 0);
 
-      const unix = Math.floor(lodDate.getTime() / 1000);
-      return `<t:${unix}:t> (${channels.join(', ')})`;
+      // Calculate the unix timestamp considering Spain's offset + hour
+      const timestamp = (baseDateUTC + ((spainOffset + hour) * 3600000) + (minute * 60000)) / 1000;
+
+      return `<t:${Math.floor(timestamp)}:t> (${channels.join(', ')})`;
     });
 
     const embed = new EmbedBuilder()
       .setColor('#ff46da')
-      .setDescription(`🕘 **Horarios de apertura de LOD (se muestra en tu horario)**\n\n${lodList.join('\n')}`);
+      .setDescription(`🕘 Horarios de apertura de LOD (se muestra en tu horario)\n\n${lodList.join('\n')}`);
 
     await interaction.reply({ embeds: [embed], ephemeral: true });
   }
