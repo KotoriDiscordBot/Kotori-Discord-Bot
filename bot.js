@@ -59,7 +59,7 @@ client.on('messageCreate', async (message) => {
     console.log(`💬 [PID: ${process.pid}] DM from ${message.author.tag}: ${message.content}`);
 
     try {
-      await message.reply('Holi, este es el bot de Kotori. Tu mensaje será reenviado a Kotori real y recibirás una respuesta en cuanto sea posible. A no ser que seas Gum, en cuyo caso no responderé ✨');
+      await message.reply('Holi, este es el bot de Kotori. Tu mensaje será reenviado a la verdadera Kotori y recibirás una respuesta en cuanto sea posible. A no ser que seas Gum, en cuyo caso no responderé ✨');
 
       const logChannel = await client.channels.fetch('1397418340074524847');
       if (logChannel && logChannel.isTextBased()) {
@@ -78,7 +78,7 @@ client.on('messageCreate', async (message) => {
 });
 
 // Handle interaction for /lod
-client.on('interactionCreate', async interaction => {
+client.on('interactionCreate', async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
   if (interaction.commandName === 'lod') {
@@ -93,6 +93,7 @@ client.on('interactionCreate', async interaction => {
       { time: '21:00', channels: ['CH4', 'CH5', 'CH6'] },
     ];
 
+    // Get current date/time in Spain timezone
     const now = new Date();
     const baseDate = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Madrid' }));
     baseDate.setSeconds(0);
@@ -110,7 +111,7 @@ client.on('interactionCreate', async interaction => {
 
     const embedMessage = `🕘 **Horarios de apertura de LOD (se muestra en tu horario)**\n\n${lodList.join('\n')}`;
 
-    await interaction.reply({ content: embedMessage, ephemeral: false });
+    await interaction.reply({ content: embedMessage, ephemeral: true }); // Ephemeral reply
   }
 });
 
