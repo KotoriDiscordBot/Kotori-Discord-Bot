@@ -61,7 +61,7 @@ client.once('ready', async () => {
       .toJSON(),
     new SlashCommandBuilder()
       .setName('fichashardcore')
-      .setDescription('Controla cuántas fichas te faltan para el libro de ataque. Excel hecho por Kurapikaa')
+      .setDescription('Calcula cuántas fichas te faltan para el libro de ataque. Excel hecho por Kurapikaa')
       .toJSON()
   ];
 
@@ -92,7 +92,7 @@ client.on('messageCreate', async (message) => {
 
     try {
       if (!greetedUsers.has(message.author.id)) {
-        await message.reply('Holi, este es el bot de Kotori. Escribe "/comandos" (o utiliza el panel de comandos) para ver las funciones disponibles ✨');
+        await message.reply('Holi, este es el bot de Kotori. Utiliza "/comandos" o abre el panel de comandos para ver las funciones disponibles ✨');
         greetedUsers.add(message.author.id);
       }
 
@@ -130,7 +130,7 @@ client.on('interactionCreate', async (interaction) => {
         '**/comandos** - Muestra una lista de todos los comandos disponibles y sus funciones',
         '**/lod** - Muestra los horarios de apertura de LOD (en tu zona horaria)',
         '**/caligor** - Muestra los horarios de Caligor (en tu zona horaria)',
-        '**/fichashardcore** - Controla cuántas fichas te faltan para el libro de ataque. Excel hecho por Kurapikaa'
+        '**/fichashardcore** - Calcula cuántas fichas te faltan para el libro de ataque. Excel hecho por Kurapikaa'
       ].join('\n'));
 
     await smartReply(interaction, embed);
