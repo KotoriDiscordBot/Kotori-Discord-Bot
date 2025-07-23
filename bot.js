@@ -146,27 +146,29 @@ client.on('interactionCreate', async (interaction) => {
   }
 
   // Caligor command
-  if (interaction.commandName === 'caligor') {
-    const times = ['15:00', '18:00'];
-    const now = new Date();
-    const year = now.getUTCFullYear();
-    const month = now.getUTCMonth();
-    const day = now.getUTCDate();
+if (interaction.commandName === 'caligor') {
+  const times = ['15:00', '18:00'];
+  const now = new Date();
+  const year = now.getUTCFullYear();
+  const month = now.getUTCMonth();
+  const day = now.getUTCDate();
 
-    const caligorList = times.map((time) => {
-      const [hour, minute] = time.split(':').map(Number);
-      const utcDate = new Date(Date.UTC(year, month, day, hour, minute, 0));
-      const unix = Math.floor(utcDate.getTime() / 1000);
-      return `<t:${unix}:t>`;
-    });
+  const caligorList = times.map((time, index) => {
+    const [hour, minute] = time.split(':').map(Number);
+    const utcDate = new Date(Date.UTC(year, month, day, hour, minute, 0));
+    const unix = Math.floor(utcDate.getTime() / 1000);
 
-    const embed = new EmbedBuilder()
-      .setColor('#ff46da')
-      .setTitle('Horarios de Caligor')
-      .setDescription(`Sábados y domingos\n\n${caligorList.join('\n')}`);
+    const label = index === 0 ? 'Primer Caligor' : 'Segundo Caligor';
+    return `${label}: <t:${unix}:t>`;
+  });
 
-    await smartReply(interaction, embed);
-  }
+  const embed = new EmbedBuilder()
+    .setColor('#ff46da')
+    .setTitle('Horarios de Caligor')
+    .setDescription(`Sábados y domingos\n\n${caligorList.join('\n\n')}`);
+
+  await smartReply(interaction, embed);
+}
 });
 
 client.login(process.env.DISCORD_TOKEN);
