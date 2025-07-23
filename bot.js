@@ -92,7 +92,7 @@ client.on('messageCreate', async (message) => {
 
     try {
       if (!greetedUsers.has(message.author.id)) {
-        await message.reply('Holi, este es el bot de Kotori. Tu mensaje será reenviado a la verdadera Kotori y recibirás una respuesta en cuanto sea posible. A no ser que seas Gum, en cuyo caso no recibirás ninguna respuesta ✨');
+        await message.reply('Holi, este es el bot de Kotori. Escribe "/comandos" (o utiliza el panel de comandos) para ver las funciones disponibles ✨');
         greetedUsers.add(message.author.id);
       }
 
