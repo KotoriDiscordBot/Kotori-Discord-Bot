@@ -145,7 +145,7 @@ client.on('interactionCreate', async (interaction) => {
     await smartReply(interaction, embed);
   }
 
-  // Caligor command
+// Caligor command
 if (interaction.commandName === 'caligor') {
   const times = ['15:00', '18:00'];
   const now = new Date();
@@ -165,7 +165,7 @@ if (interaction.commandName === 'caligor') {
   const embed = new EmbedBuilder()
     .setColor('#ff46da')
     .setTitle('Horarios de Caligor')
-    .setDescription(`Sábados y domingos\n\n${caligorList.join('\n\n')}`);
+    .setDescription(`Sábados y domingos\n\n${caligorList.join('\n')}`);
 
   await smartReply(interaction, embed);
 }
