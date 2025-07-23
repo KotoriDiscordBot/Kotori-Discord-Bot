@@ -151,7 +151,7 @@ client.on('interactionCreate', async (interaction) => {
 
   await interaction.reply({ embeds: [embed], flags: 64 });
 }
-
+});
 
 
 client.login(process.env.DISCORD_TOKEN);
