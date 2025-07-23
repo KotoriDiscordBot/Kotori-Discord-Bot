@@ -49,7 +49,6 @@ const recentDMs = new Set();
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
 
-  // Check if it's a DM
   if (message.channel.type === ChannelType.DM) {
     if (recentDMs.has(message.id)) return;
     recentDMs.add(message.id);
@@ -92,7 +91,6 @@ client.on('interactionCreate', async (interaction) => {
       { time: '21:00', channels: ['CH4', 'CH5', 'CH6'] },
     ];
 
-    // Get current date/time in Spain timezone
     const now = new Date();
     const baseDate = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Madrid' }));
     baseDate.setSeconds(0);
@@ -106,17 +104,15 @@ client.on('interactionCreate', async (interaction) => {
 
       const unix = Math.floor(lodDate.getTime() / 1000);
 
-      // Channel string padded to 12 chars for alignment
-      const channelsStr = channels.join(', ').padEnd(12, ' ');
+      // Channels string padded to 15 chars so the dash aligns nicely
+      const channelsStr = channels.join(', ').padEnd(15, ' ');
 
-      // Return line with Discord timestamp + dash + padded channels string
       return `<t:${unix}:t>  -  ${channelsStr}`;
     });
 
-    const embedMessage = `🕘 Horarios de apertura de LOD (se muestra en tu horario)\n\n` + '```' + lodList.join('\n') + '```';
+    const embedMessage = `🕘 Horarios de apertura de LOD (se muestra en tu horario)\n\n${lodList.join('\n')}`;
 
-    // Use flags: 64 for ephemeral reply (instead of deprecated ephemeral option)
-    await interaction.reply({ content: embedMessage, flags: 64 });
+    await interaction.reply({ content: embedMessage, flags: 64 }); // ephemeral reply
   }
 });
 
