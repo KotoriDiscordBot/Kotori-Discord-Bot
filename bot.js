@@ -95,43 +95,28 @@ client.on('interactionCreate', async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
   if (interaction.commandName === 'lod') {
-    // Hours in Argentina local time (GMT-3), fixed as you provided
     const hours = [
-      { time: '19:00', channels: ['CH7'] },
-      { time: '22:00', channels: ['CH1'] },
-      { time: '01:00', channels: ['CH1'] },  
-      { time: '04:00', channels: ['CH2'] },
-      { time: '07:00', channels: ['CH3'] },
-      { time: '10:00', channels: ['CH2', 'CH3', 'CH6'] },
-      { time: '13:00', channels: ['CH4', 'CH5', 'CH7'] },
-      { time: '16:00', channels: ['CH4', 'CH5', 'CH6'] },
+      { time: '22:00', channels: ['CH7'] },
+      { time: '01:00', channels: ['CH1'] },
+      { time: '04:00', channels: ['CH1'] },
+      { time: '07:00', channels: ['CH2'] },
+      { time: '10:00', channels: ['CH3'] },
+      { time: '13:00', channels: ['CH2', 'CH3', 'CH6'] },
+      { time: '16:00', channels: ['CH4', 'CH5', 'CH7'] },
+      { time: '19:00', channels: ['CH4', 'CH5', 'CH6'] },
     ];
 
     const now = new Date();
 
-    // Function to create Date with Argentina time (GMT-3)
-    function createArgentinaDate(timeStr) {
-      const [hour, minute] = timeStr.split(':').map(Number);
-
-      // Get year, month, day in Argentina timezone:
-      // Since JS Date doesn't support creating with arbitrary TZ, we create a UTC date
-      // then adjust by -3 hours to simulate Argentina time
-
-      // Create a Date for current date at UTC midnight
-      const utcDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0));
-
-      // Add Argentina time offset (hour - 3)
-      const adjustedHour = hour - 3; // Argentina is UTC-3
-
-      // Set hours and minutes accordingly
-      utcDate.setUTCHours(adjustedHour, minute, 0, 0);
-
-      return utcDate;
-    }
+    // Use today's UTC year, month, day
+    const year = now.getUTCFullYear();
+    const month = now.getUTCMonth(); // 0-based
+    const day = now.getUTCDate();
 
     const lodList = hours.map(({ time, channels }) => {
-      const date = createArgentinaDate(time);
-      const unix = Math.floor(date.getTime() / 1000);
+      const [hour, minute] = time.split(':').map(Number);
+      const utcDate = new Date(Date.UTC(year, month, day, hour, minute, 0));
+      const unix = Math.floor(utcDate.getTime() / 1000);
       return `<t:${unix}:t> (${channels.join(', ')})`;
     });
 
