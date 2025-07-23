@@ -125,7 +125,7 @@ client.on('interactionCreate', async (interaction) => {
 
     const embed = new EmbedBuilder()
       .setColor('#ff46da')
-      .setDescription(🕘 **Horarios de apertura de LOD (se muestra en tu horario)**\n\n${lodList.join('\n')});
+      .setDescription(`🕘 **Horarios de apertura de LOD (se muestra en tu horario)**\n\n${lodList.join('\n')}`);
 
     await interaction.reply({ embeds: [embed], ephemeral: true });
   }
