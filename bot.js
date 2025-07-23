@@ -21,7 +21,7 @@ http.createServer((req, res) => {
 }).listen(process.env.PORT || 3000);
 
 client.once('ready', () => {
-  console.log('✅ Bot is online and ready!');
+  console.log(`✅ Bot is online and ready! [PID: ${process.pid}]`);
   setupSchedules(client);
 });
 
@@ -31,7 +31,7 @@ client.on('messageCreate', async (message) => {
 
   // Check if it's a DM
   if (message.channel.type === ChannelType.DM) {
-    console.log(`💬 DM from ${message.author.tag}: ${message.content}`);
+    console.log(`💬 [PID: ${process.pid}] DM from ${message.author.tag}: ${message.content}`);
 
     try {
       // Acknowledge the user
@@ -40,7 +40,7 @@ client.on('messageCreate', async (message) => {
       // Forward to your chosen channel
       const logChannel = await client.channels.fetch('1397418340074524847');
       if (logChannel && logChannel.isTextBased()) {
-        console.log('📤 Forwarding to channel:', logChannel.name);
+        console.log(`📤 [PID: ${process.pid}] Forwarding to channel: ${logChannel.name}`);
         logChannel.send(`**${message.author.tag}** says: ${message.content}`);
       } else {
         console.log('⚠️ Could not find a valid text channel to forward to.');
