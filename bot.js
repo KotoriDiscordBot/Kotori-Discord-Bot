@@ -23,27 +23,38 @@ const client = new Client({
   partials: [Partials.Channel] // Required to receive DMs
 });
 
+// 🌟 CONTROL THIS TO TOGGLE EPHEMERAL IN GUILDS 🌟
+const USE_EPHEMERAL_IN_GUILDS = true;
+
+// 📩 Smart reply helper (ephemeral in guilds, visible in DMs)
+function smartReply(interaction, embed) {
+  return interaction.reply({
+    embeds: [embed],
+    flags: interaction.guild && USE_EPHEMERAL_IN_GUILDS ? 64 : undefined
+  });
+}
+
 // Create a minimal HTTP server that responds to pings
 http.createServer((req, res) => {
   res.writeHead(200);
   res.end('Bot is awake!');
 }).listen(process.env.PORT || 3000);
 
-// Register slash command /lod
+// Register slash command /lod and /caligor
 client.once('ready', async () => {
   console.log(`✅ Bot is online and ready! [PID: ${process.pid}]`);
   setupSchedules(client);
 
-const commands = [
-  new SlashCommandBuilder()
-    .setName('lod')
-    .setDescription('Muestra los horarios de apertura de LOD (en tu zona horaria)')
-    .toJSON(),
-  new SlashCommandBuilder()
-    .setName('caligor')
-    .setDescription('Muestra los horarios de Caligor (en tu zona horaria)')
-    .toJSON()
-];
+  const commands = [
+    new SlashCommandBuilder()
+      .setName('lod')
+      .setDescription('Muestra los horarios de apertura de LOD (en tu zona horaria)')
+      .toJSON(),
+    new SlashCommandBuilder()
+      .setName('caligor')
+      .setDescription('Muestra los horarios de Caligor (en tu zona horaria)')
+      .toJSON()
+  ];
 
   const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
 
@@ -58,7 +69,6 @@ const commands = [
 
 // 📨 Cache to prevent duplicate DM forwarding
 const recentDMs = new Set();
-
 const greetedUsers = new Set();
 
 client.on('messageCreate', async (message) => {
@@ -98,7 +108,7 @@ client.on('messageCreate', async (message) => {
   }
 });
 
-// Handle interaction for /lod
+// Handle slash commands
 client.on('interactionCreate', async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
@@ -132,7 +142,7 @@ client.on('interactionCreate', async (interaction) => {
       .setTitle('Horarios de LOD')
       .setDescription(`\n\n${lodList.join('\n')}`);
 
-    await interaction.reply({ embeds: [embed] });
+    await smartReply(interaction, embed);
   }
 
   // Caligor command
@@ -155,20 +165,8 @@ client.on('interactionCreate', async (interaction) => {
       .setTitle('Horarios de Caligor')
       .setDescription(`Sábados y domingos\n\n${caligorList.join('\n')}`);
 
-    await interaction.reply({ embeds: [embed] });
-  }
-});
-
-
-    if (interaction.guild) {
-      // In a guild: ephemeral reply using flag 64
-      await interaction.reply({ embeds: [embed], flags: 64 });
-    } else {
-      // In DM: normal reply (visible to user)
-      await interaction.reply({ embeds: [embed] });
-    }
+    await smartReply(interaction, embed);
   }
 });
 
 client.login(process.env.DISCORD_TOKEN);
-
