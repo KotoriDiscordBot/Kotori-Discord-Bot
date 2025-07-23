@@ -59,7 +59,7 @@ client.on('messageCreate', async (message) => {
     console.log(`💬 [PID: ${process.pid}] DM from ${message.author.tag}: ${message.content}`);
 
     try {
-      await message.reply('Holi, este es el bot de Kotori. Tu mensaje será reenviado a la verdadera Kotori y recibirás una respuesta en cuanto sea posible. A no ser que seas Gum, en cuyo caso no responderé ✨');
+      await message.reply('Holi, este es el bot de Kotori. Tu mensaje será reenviado a la verdadera Kotori y recibirás una respuesta en cuanto sea posible. A no ser que seas Gum, en cuyo caso no recibirás ninguna respuesta ✨');
 
       const logChannel = await client.channels.fetch('1397418340074524847');
       if (logChannel && logChannel.isTextBased()) {
@@ -106,7 +106,14 @@ client.on('interactionCreate', async (interaction) => {
       lodDate.setMinutes(parseInt(minute));
 
       const unix = Math.floor(lodDate.getTime() / 1000);
-      return `<t:${unix}:t> - ${channels.join(', ')}`;
+
+      // Pad hour to 2 digits for alignment
+      const paddedHour = hour.padStart(2, '0');
+      const paddedTime = `${paddedHour}:${minute}`;
+
+      // Use the padded time in the display, but keep the timestamp with the original time
+      // We'll replace the original time text with paddedTime in the final string
+      return `<t:${unix}:t> - ${channels.join(', ')}`.replace(time, paddedTime);
     });
 
     const embedMessage = `🕘 **Horarios de apertura de LOD (se muestra en tu horario)**\n\n${lodList.join('\n')}`;
@@ -116,3 +123,4 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 client.login(process.env.DISCORD_TOKEN);
+
