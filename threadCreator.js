@@ -11,45 +11,43 @@ module.exports = function setupSchedules(client) {
   }
 
   // === MAIN DAILY JOB ===
-const job = schedule.scheduleJob({ rule: '0 35 2 * * *', tz: 'America/Argentina/Buenos_Aires' }, async () => {
+const job = schedule.scheduleJob({ rule: '0 0 18 * * *', tz: 'America/Argentina/Buenos_Aires' }, async () => {
   try {
-    const notifyChannel = await client.channels.fetch('1397811065236226169');
+    const notifyChannel = await client.channels.fetch('1208444259653521531');
     const threadConfigs = [
-      { id: '1397810787027783751', name: 'Primera hora', reason: 'Daily raid thread 1' },
-      { id: '1397810992112603146', name: 'Segunda hora', reason: 'Daily raid thread 2' },
-      { id: '1397811012488659025', name: 'Tercera hora', reason: 'Daily raid thread 3' }
+      { id: '1369526757673144391', name: 'Primera hora', reason: 'Daily raid thread 1' },
+      { id: '1369526825386246206', name: 'Segunda hora', reason: 'Daily raid thread 2' },
+      { id: '1369526941282996284', name: 'Tercera hora', reason: 'Daily raid thread 3' }
     ];
 
-    let anyThreadCreated = false;
+let createdThreads = [];
 
-    for (const config of threadConfigs) {
-      const channel = await client.channels.fetch(config.id);
-      const messages = await channel.messages.fetch({ limit: 1 });
+for (const config of threadConfigs) {
+  const channel = await client.channels.fetch(config.id);
+  const messages = await channel.messages.fetch({ limit: 1 });
 
-      if (!messages.size) continue; // Skip if there are no messages
+  if (!messages.size) continue; // Skip if there are no messages
 
-      const lastMessage = messages.first();
-      const thread = await lastMessage.startThread({
-        name: config.name,
-        autoArchiveDuration: 10080,
-        reason: config.reason,
-      });
+  const lastMessage = messages.first();
+  const thread = await lastMessage.startThread({
+    name: config.name,
+    autoArchiveDuration: 10080,
+    reason: config.reason,
+  });
 
-      await thread.send('+1');
-      anyThreadCreated = true;
-    }
+  await thread.send('+1');
+  createdThreads.push(config.name);
+}
 
-    if (anyThreadCreated) {
-      await notifyChannel.send({
-        content: 'Listas de raid abiertas @everyone',
-        allowedMentions: { parse: ['everyone'] }
-      });
-    }
-
-    console.log(`[${new Date().toLocaleString()}] ✅ Threads checked/created and notify sent (if needed).`);
-  } catch (error) {
-    console.error(`[${new Date().toLocaleString()}] ❌ Error during schedule:`, error);
-  }
+if (createdThreads.length) {
+  await notifyChannel.send({
+    content: 'Listas de raid abiertas @everyone',
+    allowedMentions: { parse: ['everyone'] }
+  });
+  console.log(`[${new Date().toLocaleString()}] ✅ Created threads: ${createdThreads.join(', ')}. Notification sent.`);
+} else {
+  console.log(`[${new Date().toLocaleString()}] ❌ No threads created. Nothing to notify.`);
+}
 });
 
 console.log(`🕒 Daily job scheduled for 18:00 Buenos Aires time.`);
