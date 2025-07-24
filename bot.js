@@ -70,7 +70,7 @@ client.once('ready', async () => {
     const row = new ActionRowBuilder().addComponents(button);
 
     await channel.send({
-      content: 'Haz clic en el botón para enviar un mensaje personalizado:',
+      content: 'Utiliza este botón para enviar un mensaje a un canal o usuario',
       components: [row]
     });
 
@@ -208,16 +208,16 @@ client.on('interactionCreate', async (interaction) => {
 
       const targetInput = new TextInputBuilder()
         .setCustomId('target_id_input')
-        .setLabel('ID de usuario o canal')
+        .setLabel('ID')
         .setStyle(TextInputStyle.Short)
-        .setPlaceholder('Ejemplo: 123456789012345678')
+        .setPlaceholder('ID de usuario o canal')
         .setRequired(true);
 
       const messageInput = new TextInputBuilder()
         .setCustomId('message_content_input')
-        .setLabel('Mensaje a enviar')
+        .setLabel('Mensaje')
         .setStyle(TextInputStyle.Paragraph)
-        .setPlaceholder('Escribe el mensaje aquí...')
+        .setPlaceholder('Escribe el mensaje aquí')
         .setRequired(true);
 
       // Each input must be wrapped in an ActionRow
