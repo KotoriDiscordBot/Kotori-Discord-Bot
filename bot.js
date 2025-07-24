@@ -8,7 +8,14 @@ const {
   SlashCommandBuilder,
   REST,
   Routes,
-  EmbedBuilder
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+  InteractionType
 } = require('discord.js');
 const http = require('http');
 const path = require('path');  // <-- For file paths
@@ -41,11 +48,49 @@ http.createServer((req, res) => {
   res.end('Bot is awake!');
 }).listen(process.env.PORT || 3000);
 
-// Register slash commands including /comandos at the top
+// === ADD BUTTON TO SPECIFIC MESSAGE ON READY ===
 client.once('ready', async () => {
   console.log(`✅ Bot is online and ready! [PID: ${process.pid}]`);
   setupSchedules(client);
 
+  // Add "Enviar mensaje" button to the specified message
+  try {
+    const channel = await client.channels.fetch('1397824284243791965');
+    if (!channel || !channel.isTextBased()) {
+      console.log('⚠️ Channel for button not found or is not text-based');
+      return;
+    }
+
+    const message = await channel.messages.fetch('1397825610243510365');
+    if (!message) {
+      console.log('⚠️ Message for button not found');
+      return;
+    }
+
+    // Check if button already present to avoid duplicates
+    const hasButton = message.components.some(row =>
+      row.components.some(comp => comp.customId === 'send_message_button')
+    );
+
+    if (!hasButton) {
+      const button = new ButtonBuilder()
+        .setCustomId('send_message_button')
+        .setLabel('Enviar mensaje')
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji('✉️');
+
+      const row = new ActionRowBuilder().addComponents(button);
+
+      await message.edit({ components: [row] });
+      console.log('✅ "Enviar mensaje" button added to the message.');
+    } else {
+      console.log('ℹ️ Button already present in the message.');
+    }
+  } catch (error) {
+    console.error('❌ Error adding button on ready:', error);
+  }
+
+  // Register slash commands as before (your code)
   const commands = [
     new SlashCommandBuilder()
       .setName('comandos')
@@ -117,11 +162,91 @@ client.on('messageCreate', async (message) => {
   }
 });
 
-// Handle slash commands
+// Handle slash commands and other interactions
 client.on('interactionCreate', async (interaction) => {
+  // === Modal submit handler first ===
+  if (interaction.type === InteractionType.ModalSubmit) {
+    if (interaction.customId === 'send_message_modal') {
+      const targetId = interaction.fields.getTextInputValue('target_id_input').trim();
+      const messageContent = interaction.fields.getTextInputValue('message_content_input').trim();
+
+      try {
+        // Try fetching as channel first
+        let target = null;
+        try {
+          target = await client.channels.fetch(targetId);
+          if (!target || !target.isTextBased()) {
+            target = null; // Not a text channel
+          }
+        } catch {
+          target = null;
+        }
+
+        // If not a channel, try user DM
+        if (!target) {
+          try {
+            const user = await client.users.fetch(targetId);
+            if (user) {
+              target = await user.createDM();
+            }
+          } catch {
+            target = null;
+          }
+        }
+
+        if (!target) {
+          await interaction.reply({ content: '❌ ID inválida: no se encontró canal ni usuario con ese ID.', ephemeral: true });
+          return;
+        }
+
+        // Send message to target
+        await target.send(messageContent);
+        await interaction.reply({ content: `✅ Mensaje enviado a <#${targetId}> o <@${targetId}>`, ephemeral: true });
+      } catch (error) {
+        console.error('❌ Error sending message to target:', error);
+        await interaction.reply({ content: '❌ Error al enviar el mensaje. Revisa permisos y que la ID sea correcta.', ephemeral: true });
+      }
+    }
+    return; // Done processing modal
+  }
+
+  // === Button click handler ===
+  if (interaction.isButton()) {
+    if (interaction.customId === 'send_message_button') {
+      // Show modal for input
+      const modal = new ModalBuilder()
+        .setCustomId('send_message_modal')
+        .setTitle('Enviar mensaje');
+
+      const targetInput = new TextInputBuilder()
+        .setCustomId('target_id_input')
+        .setLabel('ID de usuario o canal')
+        .setStyle(TextInputStyle.Short)
+        .setPlaceholder('Ejemplo: 123456789012345678')
+        .setRequired(true);
+
+      const messageInput = new TextInputBuilder()
+        .setCustomId('message_content_input')
+        .setLabel('Mensaje a enviar')
+        .setStyle(TextInputStyle.Paragraph)
+        .setPlaceholder('Escribe el mensaje aquí...')
+        .setRequired(true);
+
+      // Each input must be wrapped in an ActionRow
+      const firstActionRow = new ActionRowBuilder().addComponents(targetInput);
+      const secondActionRow = new ActionRowBuilder().addComponents(messageInput);
+
+      modal.addComponents(firstActionRow, secondActionRow);
+
+      await interaction.showModal(modal);
+    }
+    return; // Done processing button
+  }
+
+  // === Chat Input Commands ===
   if (!interaction.isChatInputCommand()) return;
 
-  // Comandos command
+  // Your slash commands follow here:
   if (interaction.commandName === 'comandos') {
     const embed = new EmbedBuilder()
       .setColor('#ff46da')
@@ -137,7 +262,6 @@ client.on('interactionCreate', async (interaction) => {
     return;
   }
 
-  // LOD command
   if (interaction.commandName === 'lod') {
     const hours = [
       { time: '22:00', channels: ['CH7'] },
@@ -171,7 +295,6 @@ client.on('interactionCreate', async (interaction) => {
     return;
   }
 
-  // Caligor command
   if (interaction.commandName === 'caligor') {
     const times = ['15:00', '18:00'];
     const now = new Date();
@@ -197,7 +320,6 @@ client.on('interactionCreate', async (interaction) => {
     return;
   }
 
-  // Fichas Hardcore Excel file command
   if (interaction.commandName === 'fichashardcore') {
     const filePath = path.join(__dirname, 'FichasHC.xlsx'); // Correct file path
 
