@@ -73,6 +73,34 @@ client.once('ready', async () => {
       content: 'Utiliza este botón para enviar un mensaje a un canal o usuario',
       components: [row]
     });
+    // Your 4 link buttons
+const buttonListas = new ButtonBuilder()
+  .setLabel('Listas')
+  .setStyle(ButtonStyle.Link)
+  .setURL('https://docs.google.com/document/d/1VUjL6xGj6c_Hzqa92dnNjY1FkJ6Wjak642nRMzJ595w/edit?usp=sharing');
+
+const buttonTimestamps = new ButtonBuilder()
+  .setLabel('Timestamps')
+  .setStyle(ButtonStyle.Link)
+  .setURL('https://docs.google.com/spreadsheets/d/1K0yoeyLLIEsbP_DiO33vxCES3SSmX8VIzvm0PhJj6OY/edit?usp=sharing');
+
+const buttonNosAssistant = new ButtonBuilder()
+  .setLabel('NosAssistant')
+  .setStyle(ButtonStyle.Link)
+  .setURL('https://buy.stripe.com/28og0x5NS7mTek0dQU');
+
+const buttonPhoenix = new ButtonBuilder()
+  .setLabel('Phoenix')
+  .setStyle(ButtonStyle.Link)
+  .setURL('https://checkout.stripe.com/c/pay/cs_live_a1Y4pxC8LT7R1TWzqJvdtJDs9Rn38GS1NcTAZ3RvJxuUtZ8gCMTPI6nfSU#fidkdWxOYHwnPyd1blppbHNgWjA0THNXcDFESFAzXTd3dzZkXU9fRHA0a282cWNpNU9valZpYGlpMjBSR28zVHdRXGJiQzZcMTZWSUhSaVFHMEdGM3NRbE5QYk09QUJzV05LVkF0aU8yRGM8NTU0czRoamI0QicpJ2N3amhWYHdzYHcnP3F3cGApJ2lkfGpwcVF8dWAnPyd2bGtiaWBabHFgaCcpJ2BrZGdpYFVpZGZgbWppYWB3dic%2FcXdwYHgl');
+
+const quickLinksRow = new ActionRowBuilder()
+  .addComponents(buttonListas, buttonTimestamps, buttonNosAssistant, buttonPhoenix);
+
+await channel.send({
+  content: 'Links',
+  components: [quickLinksRow],
+});
 
     console.log('✅ "Enviar mensaje" button sent in new message.');
   } catch (error) {
