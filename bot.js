@@ -98,7 +98,7 @@ const quickLinksRow = new ActionRowBuilder()
   .addComponents(buttonListas, buttonTimestamps, buttonNosAssistant, buttonPhoenix);
 
 await channel.send({
-  content: 'Algunos links de utilidad:',
+  content: 'Links:',
   components: [quickLinksRow],
 });
 
