@@ -70,7 +70,7 @@ client.once('ready', async () => {
     const row = new ActionRowBuilder().addComponents(button);
 
     await channel.send({
-      content: 'Utiliza este botón para enviar un mensaje a un canal o usuario',
+      content: 'Utiliza este botón para enviar un mensaje a un canal o usuario:',
       components: [row]
     });
     // Your 4 link buttons
@@ -98,7 +98,7 @@ const quickLinksRow = new ActionRowBuilder()
   .addComponents(buttonListas, buttonTimestamps, buttonNosAssistant, buttonPhoenix);
 
 await channel.send({
-  content: 'Links',
+  content: 'Algunos links de utilidad:',
   components: [quickLinksRow],
 });
 
