@@ -348,4 +348,31 @@ client.on('interactionCreate', async (interaction) => {
   }
 });
 
+// === Custom !links command (for specific user IDs only) ===
+client.on('messageCreate', async (message) => {
+  // Ignore bots or non-commands
+  if (message.author.bot || !message.content.startsWith('!links')) return;
+
+  const allowedUserIds = ['808865358659584011', '224999065069289472'];
+  if (!allowedUserIds.includes(message.author.id)) return; // Block access silently
+
+  // Build buttons
+  const buttonNos = new ButtonBuilder()
+    .setLabel('NosAssistant')
+    .setStyle(ButtonStyle.Link)
+    .setURL('https://buy.stripe.com/28og0x5NS7mTek0dQU');
+
+  const buttonPhoenix = new ButtonBuilder()
+    .setLabel('Phoenix')
+    .setStyle(ButtonStyle.Link)
+    .setURL('https://checkout.stripe.com/c/pay/cs_live_a1Y4pxC8LT7R1TWzqJvdtJDs9Rn38GS1NcTAZ3RvJxuUtZ8gCMTPI6nfSU#fidkdWxOYHwnPyd1blppbHNgWjA0THNXcDFESFAzXTd3dzZkXU9fRHA0a282cWNpNU9valZpYGlpMjBSR28zVHdRXGJiQzZcMTZWSUhSaVFHMEdGM3NRbE5QYk09QUJzV05LVkF0aU8yRGM8NTU0czRoamI0QicpJ2N3amhWYHdzYHcnP3F3cGApJ2lkfGpwcVF8dWAnPyd2bGtiaWBabHFgaCcpJ2BrZGdpYFVpZGZgbWppYWB3dic%2FcXdwYHgl');
+
+  const row = new ActionRowBuilder().addComponents(buttonNos, buttonPhoenix);
+
+  await message.channel.send({
+    content: 'Muchas gracias ❤️',
+    components: [row]
+  });
+});
+
 client.login(process.env.DISCORD_TOKEN);
