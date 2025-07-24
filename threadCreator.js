@@ -20,34 +20,37 @@ const job = schedule.scheduleJob({ rule: '0 0 18 * * *', tz: 'America/Argentina/
       { id: '1369526941282996284', name: 'Tercera hora', reason: 'Daily raid thread 3' }
     ];
 
-let createdThreads = [];
+    let createdThreads = [];
 
-for (const config of threadConfigs) {
-  const channel = await client.channels.fetch(config.id);
-  const messages = await channel.messages.fetch({ limit: 1 });
+    for (const config of threadConfigs) {
+      const channel = await client.channels.fetch(config.id);
+      const messages = await channel.messages.fetch({ limit: 1 });
 
-  if (!messages.size) continue; // Skip if there are no messages
+      if (!messages.size) continue;
 
-  const lastMessage = messages.first();
-  const thread = await lastMessage.startThread({
-    name: config.name,
-    autoArchiveDuration: 10080,
-    reason: config.reason,
-  });
+      const lastMessage = messages.first();
+      const thread = await lastMessage.startThread({
+        name: config.name,
+        autoArchiveDuration: 10080,
+        reason: config.reason,
+      });
 
-  await thread.send('+1');
-  createdThreads.push(config.name);
-}
+      await thread.send('+1');
+      createdThreads.push(config.name);
+    }
 
-if (createdThreads.length) {
-  await notifyChannel.send({
-    content: 'Listas de raid abiertas @everyone',
-    allowedMentions: { parse: ['everyone'] }
-  });
-  console.log(`[${new Date().toLocaleString()}] ✅ Created threads: ${createdThreads.join(', ')}. Notification sent.`);
-} else {
-  console.log(`[${new Date().toLocaleString()}] ❌ No threads created. Nothing to notify.`);
-}
+    if (createdThreads.length) {
+      await notifyChannel.send({
+        content: 'Listas de raid abiertas @everyone',
+        allowedMentions: { parse: ['everyone'] }
+      });
+      console.log(`[${new Date().toLocaleString()}] ✅ Created threads: ${createdThreads.join(', ')}. Notification sent.`);
+    } else {
+      console.log(`[${new Date().toLocaleString()}] ❌ No threads created. Nothing to notify.`);
+    }
+  } catch (error) {
+    console.error(`[${new Date().toLocaleString()}] ❌ Error in 18:00 scheduled job:`, error);
+  }
 });
 
 console.log(`🕒 Daily job scheduled for 18:00 Buenos Aires time.`);
