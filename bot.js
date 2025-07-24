@@ -211,16 +211,16 @@ client.on('interactionCreate', async (interaction) => {
         }
 
         if (!target) {
-          await interaction.reply({ content: '❌ ID inválida: no se encontró canal ni usuario con ese ID.', ephemeral: true });
+          await interaction.reply({ content: '❌ ID inválida: no se encontró canal ni usuario con ese ID.', flags: 64 });
           return;
         }
 
         // Send message to target
         await target.send(messageContent);
-        await interaction.reply({ content: `✅ Mensaje enviado a <#${targetId}> o <@${targetId}>`, ephemeral: true });
+        await interaction.reply({ content: `✅ Mensaje enviado a <#${targetId}> o <@${targetId}>`, flags: 64 });
       } catch (error) {
         console.error('❌ Error sending message to target:', error);
-        await interaction.reply({ content: '❌ Error al enviar el mensaje. Revisa permisos y que la ID sea correcta.', ephemeral: true });
+        await interaction.reply({ content: '❌ Error al enviar el mensaje. Revisa permisos y que la ID sea correcta.', flags: 64 });
       }
     }
     return; // Done processing modal
