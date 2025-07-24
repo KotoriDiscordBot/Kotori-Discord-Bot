@@ -53,7 +53,6 @@ client.once('ready', async () => {
   console.log(`✅ Bot is online and ready! [PID: ${process.pid}]`);
   setupSchedules(client);
 
-  // Add "Enviar mensaje" button to the specified message
   try {
     const channel = await client.channels.fetch('1397824284243791965');
     if (!channel || !channel.isTextBased()) {
@@ -61,25 +60,7 @@ client.once('ready', async () => {
       return;
     }
 
-    const message = await channel.messages.fetch('1397825610243510365');
-    if (!message) {
-      console.log('⚠️ Message for button not found');
-      return;
-    }
-
-    // Check if button already present to avoid duplicates
-    client.once('ready', async () => {
-  console.log(`✅ Bot is online and ready! [PID: ${process.pid}]`);
-  setupSchedules(client);
-
-  // Send a new message with the "Enviar mensaje" button
-  try {
-    const channel = await client.channels.fetch('1397824284243791965');
-    if (!channel || !channel.isTextBased()) {
-      console.log('⚠️ Channel for button not found or is not text-based');
-      return;
-    }
-
+    // Send a new message with the button
     const button = new ButtonBuilder()
       .setCustomId('send_message_button')
       .setLabel('Enviar mensaje')
@@ -98,7 +79,7 @@ client.once('ready', async () => {
     console.error('❌ Error sending message with button:', error);
   }
 
-  // Register slash commands
+  // Register slash commands as before
   const commands = [
     new SlashCommandBuilder()
       .setName('comandos')
@@ -128,7 +109,6 @@ client.once('ready', async () => {
     console.error('❌ Error registering slash commands:', error);
   }
 });
-
 // 📨 Cache to prevent duplicate DM forwarding
 const recentDMs = new Set();
 const greetedUsers = new Set();
