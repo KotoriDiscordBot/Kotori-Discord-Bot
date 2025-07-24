@@ -68,29 +68,37 @@ client.once('ready', async () => {
     }
 
     // Check if button already present to avoid duplicates
-    const hasButton = message.components.some(row =>
-      row.components.some(comp => comp.customId === 'send_message_button')
-    );
+    client.once('ready', async () => {
+  console.log(`✅ Bot is online and ready! [PID: ${process.pid}]`);
+  setupSchedules(client);
 
-    if (!hasButton) {
-      const button = new ButtonBuilder()
-        .setCustomId('send_message_button')
-        .setLabel('Enviar mensaje')
-        .setStyle(ButtonStyle.Primary)
-        .setEmoji('✉️');
-
-      const row = new ActionRowBuilder().addComponents(button);
-
-      await message.edit({ components: [row] });
-      console.log('✅ "Enviar mensaje" button added to the message.');
-    } else {
-      console.log('ℹ️ Button already present in the message.');
+  // Send a new message with the "Enviar mensaje" button
+  try {
+    const channel = await client.channels.fetch('1397824284243791965');
+    if (!channel || !channel.isTextBased()) {
+      console.log('⚠️ Channel for button not found or is not text-based');
+      return;
     }
+
+    const button = new ButtonBuilder()
+      .setCustomId('send_message_button')
+      .setLabel('Enviar mensaje')
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji('✉️');
+
+    const row = new ActionRowBuilder().addComponents(button);
+
+    await channel.send({
+      content: 'Haz clic en el botón para enviar un mensaje personalizado:',
+      components: [row]
+    });
+
+    console.log('✅ "Enviar mensaje" button sent in new message.');
   } catch (error) {
-    console.error('❌ Error adding button on ready:', error);
+    console.error('❌ Error sending message with button:', error);
   }
 
-  // Register slash commands as before (your code)
+  // Register slash commands
   const commands = [
     new SlashCommandBuilder()
       .setName('comandos')
