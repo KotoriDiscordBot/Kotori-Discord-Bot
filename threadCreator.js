@@ -11,13 +11,13 @@ module.exports = function setupSchedules(client) {
   }
 
   // === MAIN DAILY JOB ===
-const job = schedule.scheduleJob({ rule: '0 0 18 * * *', tz: 'America/Argentina/Buenos_Aires' }, async () => {
+const job = schedule.scheduleJob({ rule: '0 35 2 * * *', tz: 'America/Argentina/Buenos_Aires' }, async () => {
   try {
-    const notifyChannel = await client.channels.fetch('1208444259653521531');
+    const notifyChannel = await client.channels.fetch('1397811065236226169');
     const threadConfigs = [
-      { id: '1369526757673144391', name: 'Primera hora', reason: 'Daily raid thread 1' },
-      { id: '1369526825386246206', name: 'Segunda hora', reason: 'Daily raid thread 2' },
-      { id: '1369526941282996284', name: 'Tercera hora', reason: 'Daily raid thread 3' }
+      { id: '1397810787027783751', name: 'Primera hora', reason: 'Daily raid thread 1' },
+      { id: '1397810992112603146', name: 'Segunda hora', reason: 'Daily raid thread 2' },
+      { id: '1397811012488659025', name: 'Tercera hora', reason: 'Daily raid thread 3' }
     ];
 
     let anyThreadCreated = false;
