@@ -153,7 +153,6 @@ client.on('messageCreate', async (message) => {
 
     try {
       if (!greetedUsers.has(message.author.id)) {
-        await message.reply('Holi, este es el bot de Kotori. Utiliza "/comandos" o abre el panel de comandos para ver las funciones disponibles ✨');
         greetedUsers.add(message.author.id);
       }
 
