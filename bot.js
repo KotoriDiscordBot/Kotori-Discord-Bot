@@ -73,12 +73,12 @@ http.createServer((req, res) => {
   res.writeHead(200);
   res.end('Bot is awake!');
 }).listen(process.env.PORT || 3000, () => {
-  console.log(🌐 HTTP server running on port ${process.env.PORT || 3000});
+  console.log(`🌐 HTTP server running on port ${process.env.PORT || 3000}`);
 });
 
 // ===== READY EVENT =====
 client.once('ready', async () => {
-  console.log(🤖 Logged in as ${client.user.tag} (${client.user.id}) [PID: ${process.pid}]);
+  console.log(`🤖 Logged in as ${client.user.tag} (${client.user.id}) [PID: ${process.pid}]`);
   
   if (setupSchedules) {
     try {
@@ -167,7 +167,7 @@ client.once('ready', async () => {
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
   if (message.channel.type === ChannelType.DM) {
-    console.log(💬 DM from ${message.author.tag}: ${message.content});
+    console.log(`💬 DM from ${message.author.tag}: ${message.content}`);
   }
 });
 
