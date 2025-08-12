@@ -374,4 +374,9 @@ client.on('messageCreate', async (message) => {
   });
 });
 
-client.login(process.env.DISCORD_TOKEN);
+client.login(process.env.DISCORD_TOKEN)
+  .then(() => console.log("🔑 Logged in successfully."))
+  .catch(err => {
+    console.error("❌ Failed to login:", err);
+    process.exit(1); // Stop if login fails
+  });
