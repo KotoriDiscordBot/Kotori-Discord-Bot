@@ -54,7 +54,7 @@ console.log("✅ Client initialized.");
 
 // Print token length for debug (do NOT print the token itself)
 if (process.env.DISCORD_TOKEN) {
-  console.log(🔐 DISCORD_TOKEN length: ${process.env.DISCORD_TOKEN.length} characters);
+  console.log(`🔐 DISCORD_TOKEN length: ${process.env.DISCORD_TOKEN.length} characters`);
 } else {
   console.warn("⚠️ DISCORD_TOKEN environment variable is NOT set!");
 }
