@@ -45,15 +45,15 @@ http.createServer((req, res) => {
 // ===== READY EVENT =====
 client.once('ready', async () => {
   console.log(`🤖 Logged in as ${client.user.tag} (${client.user.id}) [PID: ${process.pid}]`);
+  console.log('⏳ Starting scheduled jobs setup...');
 
-if (setupSchedules) {
-  try {
-    await setupSchedules(client);
-    console.log("✅ setupSchedules executed.");
-  } catch (err) {
-    console.error("❌ setupSchedules failed:", err);
-  }
-}
+  if (setupSchedules) {
+    try {
+      await setupSchedules(client);
+      console.log("✅ setupSchedules executed.");
+    } catch (err) {
+      console.error("❌ setupSchedules failed:", err);
+    }
   } else {
     console.log("⚠️ No setupSchedules function to execute.");
   }
