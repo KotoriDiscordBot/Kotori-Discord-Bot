@@ -61,7 +61,7 @@ module.exports = async function setupSchedules(client) {
       try {
         const confirmChannel = await client.channels.fetch('1397497912421908500');
         const embed = {
-          description: 'El bot de Kotori continúa activo y preparado para abrir listas de raids dentro de 10 minutos 👑',
+          description: 'El bot de Kotori abrirá listas de raids dentro de 10 minutos 👑',
           color: 0xff46da,
         };
         await confirmChannel.send({ embeds: [embed] });
