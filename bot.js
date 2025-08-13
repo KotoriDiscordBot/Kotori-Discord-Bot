@@ -1,6 +1,6 @@
 require('dotenv').config();
 
-// ===== GLOBAL ERROR HANDLERS =====
+//  GLOBAL ERROR HANDLERS 
 process.on('unhandledRejection', (reason, promise) => {
   console.error('🚨 Unhandled Rejection at:', promise, 'reason:', reason);
 });
@@ -8,7 +8,7 @@ process.on('uncaughtException', err => {
   console.error('💥 Uncaught Exception:', err);
 });
 
-// ===== DISCORD.JS IMPORT =====
+//  DISCORD.JS IMPORT 
 const { Client, GatewayIntentBits, Partials } = require('discord.js');
 const http = require('http');
 
@@ -21,7 +21,7 @@ try {
   console.error("❌ Failed to load threadCreator:", err);
 }
 
-// ===== CLIENT INIT =====
+//  CLIENT INIT 
 console.log("⏳ Initializing Discord client...");
 const client = new Client({
   intents: [
@@ -34,7 +34,7 @@ const client = new Client({
 });
 console.log("✅ Client initialized.");
 
-// ===== HTTP KEEPALIVE =====
+//  HTTP KEEPALIVE 
 http.createServer((req, res) => {
   res.writeHead(200);
   res.end('Bot is awake!');
@@ -42,7 +42,7 @@ http.createServer((req, res) => {
   console.log(`🌐 HTTP server running on port ${process.env.PORT || 3000}`);
 });
 
-// ===== READY EVENT =====
+//  READY EVENT 
 client.once('ready', async () => {
   console.log(`🤖 Logged in as ${client.user.tag} (${client.user.id}) [PID: ${process.pid}]`);
   console.log('⏳ Starting scheduled jobs setup...');
@@ -59,7 +59,7 @@ client.once('ready', async () => {
   }
 });
 
-// ===== DEBUG, ERROR, WARN EVENTS =====
+//  DEBUG, ERROR, WARN EVENTS 
 client.on('debug', info => {
   console.log('🐛 [discord.js debug]', info);
 });
@@ -70,7 +70,7 @@ client.on('warn', warning => {
   console.warn('⚠️ [discord.js warning]', warning);
 });
 
-// ===== LOGIN =====
+//  LOGIN 
 console.log("⏳ Logging in...");
 client.login(process.env.DISCORD_TOKEN)
   .then(() => console.log("🔑 Logged in successfully (login promise resolved). Waiting for ready event..."))
