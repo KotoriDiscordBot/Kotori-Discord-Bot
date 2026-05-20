@@ -13,7 +13,8 @@
     "dotenv": "^17.2.0",
     "exceljs": "^4.4.0",
     "moment-timezone": "^0.6.0",
-    "node-schedule": "^2.1.1"
+    "node-schedule": "^2.1.1",
+    "mongodb": "^6.0.0"
   },
   "repository": {
     "type": "git",
