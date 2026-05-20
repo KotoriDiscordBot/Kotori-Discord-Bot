@@ -33,11 +33,6 @@ process.on('uncaughtException', error => {
 
 
 // ========================================
-// MONGODB CONNECTION
-// ========================================
-
-
-// ========================================
 // CLIENT SETUP
 // ========================================
 
@@ -93,6 +88,16 @@ client.once('ready', async () => {
 
   try {
 
+    // CONNECT TO MONGODB
+    await mongoClient.connect();
+
+    const database = mongoClient.db('linkbot');
+
+    linksCollection = database.collection('userlinks');
+
+    console.log('✅ Connected to MongoDB');
+
+    // REGISTER SLASH COMMANDS
     const rest = new REST({ version: '10' })
       .setToken(process.env.DISCORD_TOKEN);
 
@@ -105,7 +110,7 @@ client.once('ready', async () => {
 
   } catch (err) {
 
-    console.error('❌ Failed to register commands:', err);
+    console.error('❌ Failed during startup:', err);
   }
 });
 
@@ -131,36 +136,37 @@ client.on('interactionCreate', async interaction => {
       const link = interaction.options.getString('link');
 
       const existingUser = await linksCollection.findOne({
-  userId: userId
-});
+        userId: userId
+      });
 
-// DUPLICATE PREVENTION
-if (
-  existingUser &&
-  existingUser.links.includes(link)
-) {
+      // DUPLICATE PREVENTION
+      if (
+        existingUser &&
+        existingUser.links.includes(link)
+      ) {
 
-  return interaction.reply({
-    content: 'You already saved this link.',
-    ephemeral: true
-  });
-}
+        return interaction.reply({
+          content: 'You already saved this link.',
+          ephemeral: true
+        });
+      }
 
-await linksCollection.updateOne(
-  { userId: userId },
-  {
-    $push: {
-      links: link
-    }
-  },
-  {
-    upsert: true
-  }
-);
+      await linksCollection.updateOne(
+        { userId: userId },
+        {
+          $push: {
+            links: link
+          }
+        },
+        {
+          upsert: true
+        }
+      );
 
-const updatedUser = await linksCollection.findOne({
-  userId: userId
-});
+      const updatedUser = await linksCollection.findOne({
+        userId: userId
+      });
+
       return interaction.reply({
         content:
           `Link saved successfully\n` +
@@ -175,9 +181,11 @@ const updatedUser = await linksCollection.findOne({
 
     if (interaction.commandName === 'get') {
 
-      const db = loadDatabase();
+      const userData = await linksCollection.findOne({
+        userId: userId
+      });
 
-      if (!db[userId] || db[userId].length === 0) {
+      if (!userData || userData.links.length === 0) {
 
         return interaction.reply({
           content: 'You have no links saved'
@@ -186,14 +194,22 @@ const updatedUser = await linksCollection.findOne({
 
       // RANDOM LINK
       const randomIndex =
-        Math.floor(Math.random() * db[userId].length);
+        Math.floor(Math.random() * userData.links.length);
 
-      const selectedLink = db[userId][randomIndex];
+      const selectedLink =
+        userData.links[randomIndex];
 
       // REMOVE LINK FOREVER
-      db[userId].splice(randomIndex, 1);
+      userData.links.splice(randomIndex, 1);
 
-      saveDatabase(db);
+      await linksCollection.updateOne(
+        { userId: userId },
+        {
+          $set: {
+            links: userData.links
+          }
+        }
+      );
 
       // BUTTON
       const row = new ActionRowBuilder()
@@ -208,14 +224,14 @@ const updatedUser = await linksCollection.findOne({
         `Here's one of your saved links:\n\n` +
         `${selectedLink}\n\n`;
 
-      if (db[userId].length === 0) {
+      if (userData.links.length === 0) {
 
         message += '(This was your last saved link)';
       }
       else {
 
         message +=
-          `Links remaining: ${db[userId].length}`;
+          `Links remaining: ${userData.links.length}`;
       }
 
       return interaction.reply({
@@ -231,11 +247,14 @@ const updatedUser = await linksCollection.findOne({
 
     if (interaction.commandName === 'count') {
 
-      const db = loadDatabase();
+      const userData = await linksCollection.findOne({
+        userId: userId
+      });
 
-      const count = db[userId]
-        ? db[userId].length
-        : 0;
+      const count =
+        userData
+          ? userData.links.length
+          : 0;
 
       return interaction.reply({
         content: `You have ${count} links saved.`
