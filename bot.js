@@ -74,21 +74,21 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName('add')
-    .setDescription('Add a Pokemon pack opening video')
+    .setDescription('Save a link (use /get to randomly receive one of your saved links)')
     .addStringOption(option =>
       option
         .setName('link')
-        .setDescription('Video link')
+        .setDescription('The link you want to save for later')
         .setRequired(true)
     ),
 
   new SlashCommandBuilder()
     .setName('get')
-    .setDescription('Get a random unused video'),
+    .setDescription('Get a random saved link'),
 
   new SlashCommandBuilder()
     .setName('count')
-    .setDescription('Check how many videos you have left')
+    .setDescription('Check how many links you have left')
 
 ].map(command => command.toJSON());
 
@@ -147,7 +147,7 @@ client.on('interactionCreate', async interaction => {
     if (db[userId].includes(link)) {
 
       return interaction.reply({
-        content: '⚠️ You already saved this video.',
+        content: '⚠️ You already saved this link.',
         ephemeral: true
       });
     }
@@ -158,8 +158,8 @@ client.on('interactionCreate', async interaction => {
 
     return interaction.reply({
       content:
-        `✅ Video added successfully!\n` +
-        `📦 Videos saved: ${db[userId].length}`
+        `Link saved successfully\n` +
+        `Links saved: ${db[userId].length}`
     });
   }
 
@@ -175,7 +175,7 @@ client.on('interactionCreate', async interaction => {
     if (!db[userId] || db[userId].length === 0) {
 
       return interaction.reply({
-        content: '⚠️ You have no videos saved!'
+        content: 'You have no links saved!'
       });
     }
 
@@ -194,23 +194,23 @@ client.on('interactionCreate', async interaction => {
     const row = new ActionRowBuilder()
       .addComponents(
         new ButtonBuilder()
-          .setLabel('Open Video')
+          .setLabel('Open link')
           .setStyle(ButtonStyle.Link)
           .setURL(selectedVideo)
       );
 
     let message =
-      `🎴 Tonight's Pokemon pack opening:\n\n` +
+      `Here's one of your saved links:\n\n` +
       `${selectedVideo}\n\n`;
 
     if (db[userId].length === 0) {
 
-      message += '⚠️ THIS WAS YOUR LAST VIDEO!';
+      message += 'This was your last link';
     }
     else {
 
       message +=
-        `📦 Videos remaining: ${db[userId].length}`;
+        `Links remaining: ${db[userId].length}`;
     }
 
     return interaction.reply({
@@ -233,7 +233,7 @@ client.on('interactionCreate', async interaction => {
       : 0;
 
     return interaction.reply({
-      content: `📦 You have ${count} videos saved.`
+      content: `You have ${count} links saved.`
     });
   }
 
