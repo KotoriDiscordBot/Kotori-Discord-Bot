@@ -1,6 +1,6 @@
 require('dotenv').config();
 
-const fs = require('fs');
+const { MongoClient } = require('mongodb');
 const http = require('http');
 
 const {
@@ -14,7 +14,9 @@ const {
   ButtonStyle
 } = require('discord.js');
 
-const DATABASE_FILE = './videos.json';
+const mongoClient = new MongoClient(process.env.MONGODB_URI);
+
+let linksCollection;
 
 
 // ========================================
