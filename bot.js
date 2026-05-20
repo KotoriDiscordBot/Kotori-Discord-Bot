@@ -18,32 +18,61 @@ const DATABASE_FILE = './videos.json';
 
 
 // ========================================
+// GLOBAL ERROR HANDLERS
+// ========================================
+
+process.on('unhandledRejection', error => {
+  console.error('❌ Unhandled promise rejection:', error);
+});
+
+process.on('uncaughtException', error => {
+  console.error('❌ Uncaught exception:', error);
+});
+
+
+// ========================================
 // DATABASE FUNCTIONS
 // ========================================
 
 function loadDatabase() {
 
-  if (!fs.existsSync(DATABASE_FILE)) {
-    fs.writeFileSync(DATABASE_FILE, JSON.stringify({}));
-  }
+  try {
 
-  return JSON.parse(fs.readFileSync(DATABASE_FILE));
+    if (!fs.existsSync(DATABASE_FILE)) {
+      fs.writeFileSync(DATABASE_FILE, JSON.stringify({}, null, 2));
+    }
+
+    const fileContent = fs.readFileSync(DATABASE_FILE, 'utf8');
+
+    // Prevent crash if file is empty
+    if (!fileContent.trim()) {
+      return {};
+    }
+
+    return JSON.parse(fileContent);
+
+  } catch (error) {
+
+    console.error('❌ Failed to load database:', error);
+
+    // Prevent total bot crash
+    return {};
+  }
 }
 
 function saveDatabase(data) {
-  fs.writeFileSync(DATABASE_FILE, JSON.stringify(data, null, 2));
-}
 
-function getUserVideos(userId) {
+  try {
 
-  const db = loadDatabase();
+    fs.writeFileSync(
+      DATABASE_FILE,
+      JSON.stringify(data, null, 2)
+    );
 
-  if (!db[userId]) {
-    db[userId] = [];
-    saveDatabase(db);
+  } catch (error) {
+
+    console.error('❌ Failed to save database:', error);
   }
-
-  return db[userId];
 }
 
 
@@ -114,6 +143,7 @@ client.once('ready', async () => {
     console.log('✅ Slash commands registered.');
 
   } catch (err) {
+
     console.error('❌ Failed to register commands:', err);
   }
 });
@@ -125,118 +155,146 @@ client.once('ready', async () => {
 
 client.on('interactionCreate', async interaction => {
 
-  if (!interaction.isChatInputCommand()) return;
+  try {
 
-  const userId = interaction.user.id;
+    if (!interaction.isChatInputCommand()) return;
 
-  // ====================================
-  // /ADD
-  // ====================================
+    const userId = interaction.user.id;
 
-  if (interaction.commandName === 'add') {
+    // ====================================
+    // /ADD
+    // ====================================
 
-    const link = interaction.options.getString('link');
+    if (interaction.commandName === 'add') {
 
-    const db = loadDatabase();
+      const link = interaction.options.getString('link');
 
-    if (!db[userId]) {
-      db[userId] = [];
-    }
+      const db = loadDatabase();
 
-    // DUPLICATE PREVENTION
-    if (db[userId].includes(link)) {
+      if (!db[userId]) {
+        db[userId] = [];
+      }
+
+      // DUPLICATE PREVENTION
+      if (db[userId].includes(link)) {
+
+        return interaction.reply({
+          content: 'You already saved this link.',
+          ephemeral: true
+        });
+      }
+
+      db[userId].push(link);
+
+      saveDatabase(db);
 
       return interaction.reply({
-        content: '⚠️ You already saved this link.',
+        content:
+          `Link saved successfully\n` +
+          `Links saved: ${db[userId].length}`
+      });
+    }
+
+
+    // ====================================
+    // /GET
+    // ====================================
+
+    if (interaction.commandName === 'get') {
+
+      const db = loadDatabase();
+
+      if (!db[userId] || db[userId].length === 0) {
+
+        return interaction.reply({
+          content: 'You have no links saved'
+        });
+      }
+
+      // RANDOM LINK
+      const randomIndex =
+        Math.floor(Math.random() * db[userId].length);
+
+      const selectedLink = db[userId][randomIndex];
+
+      // REMOVE LINK FOREVER
+      db[userId].splice(randomIndex, 1);
+
+      saveDatabase(db);
+
+      // BUTTON
+      const row = new ActionRowBuilder()
+        .addComponents(
+          new ButtonBuilder()
+            .setLabel('Open link')
+            .setStyle(ButtonStyle.Link)
+            .setURL(selectedLink)
+        );
+
+      let message =
+        `Here's one of your saved links:\n\n` +
+        `${selectedLink}\n\n`;
+
+      if (db[userId].length === 0) {
+
+        message += '(This was your last saved link)';
+      }
+      else {
+
+        message +=
+          `Links remaining: ${db[userId].length}`;
+      }
+
+      return interaction.reply({
+        content: message,
+        components: [row]
+      });
+    }
+
+
+    // ====================================
+    // /COUNT
+    // ====================================
+
+    if (interaction.commandName === 'count') {
+
+      const db = loadDatabase();
+
+      const count = db[userId]
+        ? db[userId].length
+        : 0;
+
+      return interaction.reply({
+        content: `You have ${count} links saved.`
+      });
+    }
+
+  } catch (error) {
+
+    console.error('❌ Interaction error:', error);
+
+    // Prevent Discord timeout message
+    if (!interaction.replied && !interaction.deferred) {
+
+      await interaction.reply({
+        content: 'Something went wrong while processing your request.',
         ephemeral: true
       });
     }
-
-    db[userId].push(link);
-
-    saveDatabase(db);
-
-    return interaction.reply({
-      content:
-        `Link saved successfully\n` +
-        `Links saved: ${db[userId].length}`
-    });
   }
+});
 
 
-  // ====================================
-  // /GET
-  // ====================================
+// ========================================
+// CLIENT ERRORS
+// ========================================
 
-  if (interaction.commandName === 'get') {
+client.on('error', error => {
+  console.error('❌ Discord client error:', error);
+});
 
-    const db = loadDatabase();
-
-    if (!db[userId] || db[userId].length === 0) {
-
-      return interaction.reply({
-        content: 'You have no links saved!'
-      });
-    }
-
-    // RANDOM VIDEO
-    const randomIndex =
-      Math.floor(Math.random() * db[userId].length);
-
-    const selectedVideo = db[userId][randomIndex];
-
-    // REMOVE VIDEO FOREVER
-    db[userId].splice(randomIndex, 1);
-
-    saveDatabase(db);
-
-    // BUTTON
-    const row = new ActionRowBuilder()
-      .addComponents(
-        new ButtonBuilder()
-          .setLabel('Open link')
-          .setStyle(ButtonStyle.Link)
-          .setURL(selectedVideo)
-      );
-
-    let message =
-      `Here's one of your saved links:\n\n` +
-      `${selectedVideo}\n\n`;
-
-    if (db[userId].length === 0) {
-
-      message += 'This was your last link';
-    }
-    else {
-
-      message +=
-        `Links remaining: ${db[userId].length}`;
-    }
-
-    return interaction.reply({
-      content: message,
-      components: [row]
-    });
-  }
-
-
-  // ====================================
-  // /COUNT
-  // ====================================
-
-  if (interaction.commandName === 'count') {
-
-    const db = loadDatabase();
-
-    const count = db[userId]
-      ? db[userId].length
-      : 0;
-
-    return interaction.reply({
-      content: `You have ${count} links saved.`
-    });
-  }
-
+client.on('warn', warning => {
+  console.warn('⚠️ Discord warning:', warning);
 });
 
 
@@ -244,4 +302,7 @@ client.on('interactionCreate', async interaction => {
 // LOGIN
 // ========================================
 
-client.login(process.env.DISCORD_TOKEN);
+client.login(process.env.DISCORD_TOKEN)
+  .catch(error => {
+    console.error('❌ Failed to login:', error);
+  });
