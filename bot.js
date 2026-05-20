@@ -1,80 +1,247 @@
 require('dotenv').config();
 
-//  GLOBAL ERROR HANDLERS 
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('🚨 Unhandled Rejection at:', promise, 'reason:', reason);
-});
-process.on('uncaughtException', err => {
-  console.error('💥 Uncaught Exception:', err);
-});
-
-//  DISCORD.JS IMPORT 
-const { Client, GatewayIntentBits, Partials } = require('discord.js');
+const fs = require('fs');
 const http = require('http');
 
-console.log("⏳ Importing threadCreator...");
-let setupSchedules;
-try {
-  setupSchedules = require('./threadCreator');
-  console.log("✅ threadCreator loaded successfully.");
-} catch (err) {
-  console.error("❌ Failed to load threadCreator:", err);
+const {
+  Client,
+  GatewayIntentBits,
+  SlashCommandBuilder,
+  Routes,
+  REST,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle
+} = require('discord.js');
+
+const DATABASE_FILE = './videos.json';
+
+
+// ========================================
+// DATABASE FUNCTIONS
+// ========================================
+
+function loadDatabase() {
+
+  if (!fs.existsSync(DATABASE_FILE)) {
+    fs.writeFileSync(DATABASE_FILE, JSON.stringify({}));
+  }
+
+  return JSON.parse(fs.readFileSync(DATABASE_FILE));
 }
 
-//  CLIENT INIT 
-console.log("⏳ Initializing Discord client...");
-const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-    GatewayIntentBits.DirectMessages
-  ],
-  partials: [Partials.Channel]
-});
-console.log("✅ Client initialized.");
+function saveDatabase(data) {
+  fs.writeFileSync(DATABASE_FILE, JSON.stringify(data, null, 2));
+}
 
-//  HTTP KEEPALIVE 
+function getUserVideos(userId) {
+
+  const db = loadDatabase();
+
+  if (!db[userId]) {
+    db[userId] = [];
+    saveDatabase(db);
+  }
+
+  return db[userId];
+}
+
+
+// ========================================
+// CLIENT SETUP
+// ========================================
+
+const client = new Client({
+  intents: [GatewayIntentBits.Guilds]
+});
+
+
+// ========================================
+// KEEPALIVE SERVER
+// ========================================
+
 http.createServer((req, res) => {
   res.writeHead(200);
   res.end('Bot is awake!');
-}).listen(process.env.PORT || 3000, () => {
-  console.log(`🌐 HTTP server running on port ${process.env.PORT || 3000}`);
-});
+}).listen(process.env.PORT || 3000);
 
-//  READY EVENT 
+
+// ========================================
+// SLASH COMMANDS
+// ========================================
+
+const commands = [
+
+  new SlashCommandBuilder()
+    .setName('add')
+    .setDescription('Add a Pokemon pack opening video')
+    .addStringOption(option =>
+      option
+        .setName('link')
+        .setDescription('Video link')
+        .setRequired(true)
+    ),
+
+  new SlashCommandBuilder()
+    .setName('get')
+    .setDescription('Get a random unused video'),
+
+  new SlashCommandBuilder()
+    .setName('count')
+    .setDescription('Check how many videos you have left')
+
+].map(command => command.toJSON());
+
+
+// ========================================
+// READY EVENT
+// ========================================
+
 client.once('ready', async () => {
-  console.log(`🤖 Logged in as ${client.user.tag} (${client.user.id}) [PID: ${process.pid}]`);
-  console.log('⏳ Starting scheduled jobs setup...');
 
-  if (setupSchedules) {
-    try {
-      await setupSchedules(client);
-      console.log("✅ setupSchedules executed.");
-    } catch (err) {
-      console.error("❌ setupSchedules failed:", err);
-    }
-  } else {
-    console.log("⚠️ No setupSchedules function to execute.");
+  console.log(`✅ Logged in as ${client.user.tag}`);
+
+  try {
+
+    const rest = new REST({ version: '10' })
+      .setToken(process.env.DISCORD_TOKEN);
+
+    await rest.put(
+      Routes.applicationCommands(client.user.id),
+      { body: commands }
+    );
+
+    console.log('✅ Slash commands registered.');
+
+  } catch (err) {
+    console.error('❌ Failed to register commands:', err);
   }
 });
 
-//  DEBUG, ERROR, WARN EVENTS 
-client.on('debug', info => {
-  console.log('🐛 [discord.js debug]', info);
-});
-client.on('error', error => {
-  console.error('❌ [discord.js error]', error);
-});
-client.on('warn', warning => {
-  console.warn('⚠️ [discord.js warning]', warning);
+
+// ========================================
+// INTERACTIONS
+// ========================================
+
+client.on('interactionCreate', async interaction => {
+
+  if (!interaction.isChatInputCommand()) return;
+
+  const userId = interaction.user.id;
+
+  // ====================================
+  // /ADD
+  // ====================================
+
+  if (interaction.commandName === 'add') {
+
+    const link = interaction.options.getString('link');
+
+    const db = loadDatabase();
+
+    if (!db[userId]) {
+      db[userId] = [];
+    }
+
+    // DUPLICATE PREVENTION
+    if (db[userId].includes(link)) {
+
+      return interaction.reply({
+        content: '⚠️ You already saved this video.',
+        ephemeral: true
+      });
+    }
+
+    db[userId].push(link);
+
+    saveDatabase(db);
+
+    return interaction.reply({
+      content:
+        `✅ Video added successfully!\n` +
+        `📦 Videos saved: ${db[userId].length}`
+    });
+  }
+
+
+  // ====================================
+  // /GET
+  // ====================================
+
+  if (interaction.commandName === 'get') {
+
+    const db = loadDatabase();
+
+    if (!db[userId] || db[userId].length === 0) {
+
+      return interaction.reply({
+        content: '⚠️ You have no videos saved!'
+      });
+    }
+
+    // RANDOM VIDEO
+    const randomIndex =
+      Math.floor(Math.random() * db[userId].length);
+
+    const selectedVideo = db[userId][randomIndex];
+
+    // REMOVE VIDEO FOREVER
+    db[userId].splice(randomIndex, 1);
+
+    saveDatabase(db);
+
+    // BUTTON
+    const row = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder()
+          .setLabel('Open Video')
+          .setStyle(ButtonStyle.Link)
+          .setURL(selectedVideo)
+      );
+
+    let message =
+      `🎴 Tonight's Pokemon pack opening:\n\n` +
+      `${selectedVideo}\n\n`;
+
+    if (db[userId].length === 0) {
+
+      message += '⚠️ THIS WAS YOUR LAST VIDEO!';
+    }
+    else {
+
+      message +=
+        `📦 Videos remaining: ${db[userId].length}`;
+    }
+
+    return interaction.reply({
+      content: message,
+      components: [row]
+    });
+  }
+
+
+  // ====================================
+  // /COUNT
+  // ====================================
+
+  if (interaction.commandName === 'count') {
+
+    const db = loadDatabase();
+
+    const count = db[userId]
+      ? db[userId].length
+      : 0;
+
+    return interaction.reply({
+      content: `📦 You have ${count} videos saved.`
+    });
+  }
+
 });
 
-//  LOGIN 
-console.log("⏳ Logging in...");
-client.login(process.env.DISCORD_TOKEN)
-  .then(() => console.log("🔑 Logged in successfully (login promise resolved). Waiting for ready event..."))
-  .catch(err => {
-    console.error("❌ Failed to login:", err);
-    process.exit(1);
-  });
+
+// ========================================
+// LOGIN
+// ========================================
+
+client.login(process.env.DISCORD_TOKEN);
