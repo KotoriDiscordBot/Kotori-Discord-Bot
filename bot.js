@@ -7,7 +7,7 @@ const {
   Client,
   GatewayIntentBits,
   SlashCommandBuilder,
- Routes,
+  Routes,
   REST,
   ActionRowBuilder,
   ButtonBuilder,
@@ -116,6 +116,10 @@ client.on('interactionCreate', async interaction => {
 
     if (!interaction.isChatInputCommand()) return;
 
+    // IMPORTANT:
+    // Prevent Discord timeout errors
+    await interaction.deferReply();
+
     const userId = interaction.user.id;
 
     // ====================================
@@ -136,9 +140,8 @@ client.on('interactionCreate', async interaction => {
         existingUser.links.includes(link)
       ) {
 
-        return interaction.reply({
-          content: 'You already saved this link.',
-          ephemeral: true
+        return interaction.editReply({
+          content: 'You already saved this link.'
         });
       }
 
@@ -158,7 +161,7 @@ client.on('interactionCreate', async interaction => {
         userId: userId
       });
 
-      return interaction.reply({
+      return interaction.editReply({
         content:
           `Link saved successfully\n` +
           `Links saved: ${updatedUser.links.length}`
@@ -176,9 +179,9 @@ client.on('interactionCreate', async interaction => {
         userId: userId
       });
 
-      if (!userData || userData.links.length === 0) {
+      if (!userData || !userData.links || userData.links.length === 0) {
 
-        return interaction.reply({
+        return interaction.editReply({
           content: 'You have no links saved'
         });
       }
@@ -225,7 +228,7 @@ client.on('interactionCreate', async interaction => {
           `Links remaining: ${userData.links.length}`;
       }
 
-      return interaction.reply({
+      return interaction.editReply({
         content: message,
         components: [row]
       });
@@ -243,11 +246,11 @@ client.on('interactionCreate', async interaction => {
       });
 
       const count =
-        userData
+        userData && userData.links
           ? userData.links.length
           : 0;
 
-      return interaction.reply({
+      return interaction.editReply({
         content: `You have ${count} links saved.`
       });
     }
@@ -256,13 +259,25 @@ client.on('interactionCreate', async interaction => {
 
     console.error('❌ Interaction error:', error);
 
-    // Prevent Discord timeout message
-    if (!interaction.replied && !interaction.deferred) {
+    try {
 
-      await interaction.reply({
-        content: 'Something went wrong while processing your request.',
-        ephemeral: true
-      });
+      if (interaction.deferred || interaction.replied) {
+
+        await interaction.editReply({
+          content: 'Something went wrong while processing your request.'
+        });
+
+      } else {
+
+        await interaction.reply({
+          content: 'Something went wrong while processing your request.',
+          ephemeral: true
+        });
+      }
+
+    } catch (err) {
+
+      console.error('❌ Failed to send error reply:', err);
     }
   }
 });
