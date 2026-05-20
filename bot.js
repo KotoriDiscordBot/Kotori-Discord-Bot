@@ -33,49 +33,8 @@ process.on('uncaughtException', error => {
 
 
 // ========================================
-// DATABASE FUNCTIONS
+// MONGODB CONNECTION
 // ========================================
-
-function loadDatabase() {
-
-  try {
-
-    if (!fs.existsSync(DATABASE_FILE)) {
-      fs.writeFileSync(DATABASE_FILE, JSON.stringify({}, null, 2));
-    }
-
-    const fileContent = fs.readFileSync(DATABASE_FILE, 'utf8');
-
-    // Prevent crash if file is empty
-    if (!fileContent.trim()) {
-      return {};
-    }
-
-    return JSON.parse(fileContent);
-
-  } catch (error) {
-
-    console.error('❌ Failed to load database:', error);
-
-    // Prevent total bot crash
-    return {};
-  }
-}
-
-function saveDatabase(data) {
-
-  try {
-
-    fs.writeFileSync(
-      DATABASE_FILE,
-      JSON.stringify(data, null, 2)
-    );
-
-  } catch (error) {
-
-    console.error('❌ Failed to save database:', error);
-  }
-}
 
 
 // ========================================
