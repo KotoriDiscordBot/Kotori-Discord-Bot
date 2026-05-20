@@ -130,29 +130,41 @@ client.on('interactionCreate', async interaction => {
 
       const link = interaction.options.getString('link');
 
-      const db = loadDatabase();
+      const existingUser = await linksCollection.findOne({
+  userId: userId
+});
 
-      if (!db[userId]) {
-        db[userId] = [];
-      }
+// DUPLICATE PREVENTION
+if (
+  existingUser &&
+  existingUser.links.includes(link)
+) {
 
-      // DUPLICATE PREVENTION
-      if (db[userId].includes(link)) {
+  return interaction.reply({
+    content: 'You already saved this link.',
+    ephemeral: true
+  });
+}
 
-        return interaction.reply({
-          content: 'You already saved this link.',
-          ephemeral: true
-        });
-      }
+await linksCollection.updateOne(
+  { userId: userId },
+  {
+    $push: {
+      links: link
+    }
+  },
+  {
+    upsert: true
+  }
+);
 
-      db[userId].push(link);
-
-      saveDatabase(db);
-
+const updatedUser = await linksCollection.findOne({
+  userId: userId
+});
       return interaction.reply({
         content:
           `Link saved successfully\n` +
-          `Links saved: ${db[userId].length}`
+          `Links saved: ${updatedUser.links.length}`
       });
     }
 
