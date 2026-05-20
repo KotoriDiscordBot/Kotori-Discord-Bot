@@ -7,7 +7,7 @@ const {
   Client,
   GatewayIntentBits,
   SlashCommandBuilder,
-  Routes,
+ Routes,
   REST,
   ActionRowBuilder,
   ButtonBuilder,
@@ -87,15 +87,6 @@ client.once('ready', async () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
 
   try {
-
-    // CONNECT TO MONGODB
-    await mongoClient.connect();
-
-    const database = mongoClient.db('linkbot');
-
-    linksCollection = database.collection('userlinks');
-
-    console.log('✅ Connected to MongoDB');
 
     // REGISTER SLASH COMMANDS
     const rest = new REST({ version: '10' })
@@ -291,10 +282,27 @@ client.on('warn', warning => {
 
 
 // ========================================
-// LOGIN
+// STARTUP
 // ========================================
 
-client.login(process.env.DISCORD_TOKEN)
-  .catch(error => {
-    console.error('❌ Failed to login:', error);
-  });
+async function startBot() {
+
+  try {
+
+    await mongoClient.connect();
+
+    console.log('✅ Connected to MongoDB');
+
+    const database = mongoClient.db('linkbot');
+
+    linksCollection = database.collection('links');
+
+    await client.login(process.env.DISCORD_TOKEN);
+
+  } catch (error) {
+
+    console.error('❌ Failed during startup:', error);
+  }
+}
+
+startBot();
