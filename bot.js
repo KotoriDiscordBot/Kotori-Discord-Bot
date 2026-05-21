@@ -14,6 +14,11 @@ const {
   ButtonStyle
 } = require('discord.js');
 
+
+// ========================================
+// MONGODB
+// ========================================
+
 const mongoClient = new MongoClient(process.env.MONGODB_URI);
 
 let linksCollection;
@@ -31,6 +36,42 @@ process.on('uncaughtException', error => {
   console.error('❌ Uncaught exception:', error);
 });
 
+process.on('uncaughtExceptionMonitor', error => {
+  console.error('❌ Uncaught exception monitor:', error);
+});
+
+process.on('warning', warning => {
+  console.warn('⚠️ Node warning:', warning);
+});
+
+process.on('SIGINT', async () => {
+
+  console.log('⚠️ Bot shutting down (SIGINT)');
+
+  try {
+    await mongoClient.close();
+    console.log('✅ MongoDB connection closed');
+  } catch (err) {
+    console.error('❌ Error while closing MongoDB:', err);
+  }
+
+  process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+
+  console.log('⚠️ Bot shutting down (SIGTERM)');
+
+  try {
+    await mongoClient.close();
+    console.log('✅ MongoDB connection closed');
+  } catch (err) {
+    console.error('❌ Error while closing MongoDB:', err);
+  }
+
+  process.exit(0);
+});
+
 
 // ========================================
 // CLIENT SETUP
@@ -42,13 +83,44 @@ const client = new Client({
 
 
 // ========================================
+// DISCORD DEBUGGING
+// ========================================
+
+client.on('disconnect', event => {
+  console.warn('⚠️ Discord disconnected:', event);
+});
+
+client.on('reconnecting', () => {
+  console.log('🔄 Discord reconnecting...');
+});
+
+client.on('resume', replayed => {
+  console.log(`✅ Discord resumed (${replayed} events replayed)`);
+});
+
+client.on('shardError', error => {
+  console.error('❌ WebSocket shard error:', error);
+});
+
+client.on('invalidated', () => {
+  console.error('❌ Discord session invalidated');
+});
+
+
+// ========================================
 // KEEPALIVE SERVER
 // ========================================
 
 http.createServer((req, res) => {
+
   res.writeHead(200);
   res.end('Bot is awake!');
-}).listen(process.env.PORT || 3000);
+
+}).listen(process.env.PORT || 3000, () => {
+
+  console.log(`🌐 Keepalive server running on port ${process.env.PORT || 3000}`);
+
+});
 
 
 // ========================================
@@ -88,7 +160,6 @@ client.once('ready', async () => {
 
   try {
 
-    // REGISTER SLASH COMMANDS
     const rest = new REST({ version: '10' })
       .setToken(process.env.DISCORD_TOKEN);
 
@@ -116,8 +187,6 @@ client.on('interactionCreate', async interaction => {
 
     if (!interaction.isChatInputCommand()) return;
 
-    // IMPORTANT:
-    // Prevent Discord timeout errors
     await interaction.deferReply();
 
     const userId = interaction.user.id;
@@ -212,8 +281,8 @@ client.on('interactionCreate', async interaction => {
       if (userData.links.length === 0) {
 
         message += '(This was your last saved link)';
-      }
-      else {
+
+      } else {
 
         message +=
           `Links remaining: ${userData.links.length}`;
@@ -221,11 +290,11 @@ client.on('interactionCreate', async interaction => {
 
       // CHECK IF IT IS A VALID URL
       const isValidUrl =
-  typeof selectedLink === 'string' &&
-  (
-    selectedLink.startsWith('http://') ||
-    selectedLink.startsWith('https://')
-  );
+        typeof selectedLink === 'string' &&
+        (
+          selectedLink.startsWith('http://') ||
+          selectedLink.startsWith('https://')
+        );
 
       // IF URL -> SHOW BUTTON
       if (isValidUrl) {
@@ -320,6 +389,8 @@ async function startBot() {
 
   try {
 
+    console.log('🔄 Connecting to MongoDB...');
+
     await mongoClient.connect();
 
     console.log('✅ Connected to MongoDB');
@@ -328,11 +399,18 @@ async function startBot() {
 
     linksCollection = database.collection('links');
 
+    console.log('🔄 Logging into Discord...');
+
     await client.login(process.env.DISCORD_TOKEN);
 
   } catch (error) {
 
     console.error('❌ Failed during startup:', error);
+
+    // Retry after 10 seconds
+    console.log('🔄 Retrying startup in 10 seconds...');
+
+    setTimeout(startBot, 10000);
   }
 }
 
