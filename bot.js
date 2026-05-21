@@ -186,14 +186,14 @@ client.on('interactionCreate', async interaction => {
         });
       }
 
-      // RANDOM LINK
+      // RANDOM ITEM
       const randomIndex =
         Math.floor(Math.random() * userData.links.length);
 
       const selectedLink =
         userData.links[randomIndex];
 
-      // REMOVE LINK FOREVER
+      // REMOVE ITEM FOREVER
       userData.links.splice(randomIndex, 1);
 
       await linksCollection.updateOne(
@@ -204,15 +204,6 @@ client.on('interactionCreate', async interaction => {
           }
         }
       );
-
-      // BUTTON
-      const row = new ActionRowBuilder()
-        .addComponents(
-          new ButtonBuilder()
-            .setLabel('Open link')
-            .setStyle(ButtonStyle.Link)
-            .setURL(selectedLink)
-        );
 
       let message =
         `Here's one of your saved links:\n\n` +
@@ -228,9 +219,34 @@ client.on('interactionCreate', async interaction => {
           `Links remaining: ${userData.links.length}`;
       }
 
+      // CHECK IF IT IS A VALID URL
+      const isValidUrl =
+  typeof selectedLink === 'string' &&
+  (
+    selectedLink.startsWith('http://') ||
+    selectedLink.startsWith('https://')
+  );
+
+      // IF URL -> SHOW BUTTON
+      if (isValidUrl) {
+
+        const row = new ActionRowBuilder()
+          .addComponents(
+            new ButtonBuilder()
+              .setLabel('Open link')
+              .setStyle(ButtonStyle.Link)
+              .setURL(selectedLink)
+          );
+
+        return interaction.editReply({
+          content: message,
+          components: [row]
+        });
+      }
+
+      // IF NOT URL -> NO BUTTON
       return interaction.editReply({
-        content: message,
-        components: [row]
+        content: message
       });
     }
 
