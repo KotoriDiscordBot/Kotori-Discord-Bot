@@ -28,6 +28,8 @@ const GOOGLE_PRIVATE_KEY = process.env.GOOGLE_PRIVATE_KEY
   ? process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n')
   : null;
 
+const WEATHER_API_KEY = process.env.WEATHER_API_KEY;
+
 const ROUTINE_CHANNEL_ID =
   process.env.ROUTINE_CHANNEL_ID || '1515018972766928946';
 
@@ -43,12 +45,12 @@ const AUTHORIZED_USERS = new Set([
 ]);
 
 const rawWeatherIntervalMinutes =
-  Number(process.env.WEATHER_INTERVAL_MINUTES || 120);
+  Number(process.env.WEATHER_INTERVAL_MINUTES || 60);
 
 const WEATHER_INTERVAL_MINUTES =
   Number.isFinite(rawWeatherIntervalMinutes) && rawWeatherIntervalMinutes > 0
     ? rawWeatherIntervalMinutes
-    : 120;
+    : 60;
 
 // Está activado por defecto.
 // Si alguna vez querés pausarlo, agregá en Render:
@@ -264,10 +266,6 @@ const commands = [
 // SMALL HELPERS
 // ========================================
 
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
 function trimDiscordMessage(message, maxLength = 1900) {
   if (message.length <= maxLength) return message;
   return message.slice(0, maxLength - 20) + '\n\n...';
@@ -379,102 +377,78 @@ function fetchJson(url) {
 
 
 // ========================================
-// WEATHER
+// WEATHER - WEATHERAPI.COM
 // ========================================
-
-const WEATHER_DESCRIPTIONS = {
-  0: 'Despejado',
-  1: 'Mayormente despejado',
-  2: 'Parcialmente nublado',
-  3: 'Nublado',
-  45: 'Niebla',
-  48: 'Niebla con escarcha',
-  51: 'Llovizna ligera',
-  53: 'Llovizna moderada',
-  55: 'Llovizna intensa',
-  61: 'Lluvia ligera',
-  63: 'Lluvia moderada',
-  65: 'Lluvia intensa',
-  71: 'Nieve ligera',
-  73: 'Nieve moderada',
-  75: 'Nieve intensa',
-  80: 'Chubascos ligeros',
-  81: 'Chubascos moderados',
-  82: 'Chubascos fuertes',
-  95: 'Tormenta'
-};
 
 let weatherUpdateRunning = false;
 let weatherSchedulerStarted = false;
 
-async function getWeatherFromOpenMeteo(lat, lon, city, timezone) {
+async function getWeatherFromWeatherApi(query, cityLabel) {
+  if (!WEATHER_API_KEY) {
+    return {
+      ok: false,
+      text: '',
+      error: `${cityLabel} - falta WEATHER_API_KEY en Render`
+    };
+  }
+
   const params = new URLSearchParams({
-    latitude: String(lat),
-    longitude: String(lon),
-    current: 'temperature_2m,weather_code',
-    timezone
+    key: WEATHER_API_KEY,
+    q: query,
+    aqi: 'no',
+    lang: 'es'
   });
 
   const url =
-    'https://api.open-meteo.com/v1/forecast?' + params.toString();
+    'https://api.weatherapi.com/v1/current.json?' + params.toString();
 
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    try {
-      const response = await fetchJson(url);
+  try {
+    const response = await fetchJson(url);
 
-      if (response.statusCode === 200) {
-        const data = response.body;
-
-        if (!data.current) {
-          return {
-            ok: false,
-            text: '',
-            error: `${city} - respuesta sin datos actuales`
-          };
-        }
-
-        const temp = data.current.temperature_2m;
-        const code = data.current.weather_code;
-        const description =
-          WEATHER_DESCRIPTIONS[code] || 'Clima variable';
-
-        return {
-          ok: true,
-          text: `${city}: ${temp}°C · ${description}`,
-          error: ''
-        };
-      }
-
-      if (response.statusCode === 429) {
-        await sleep(3000 * attempt);
-        continue;
-      }
+    if (response.statusCode !== 200) {
+      const apiMessage =
+        response.body &&
+        response.body.error &&
+        response.body.error.message
+          ? ` - ${response.body.error.message}`
+          : '';
 
       return {
         ok: false,
         text: '',
-        error: `${city} - Código HTTP: ${response.statusCode}`
-      };
-
-    } catch (error) {
-      if (attempt < 3) {
-        await sleep(3000 * attempt);
-        continue;
-      }
-
-      return {
-        ok: false,
-        text: '',
-        error: `${city} - Error: ${error.message}`
+        error: `${cityLabel} - Código HTTP: ${response.statusCode}${apiMessage}`
       };
     }
-  }
 
-  return {
-    ok: false,
-    text: '',
-    error: `${city} - Código HTTP: 429 después de reintentos`
-  };
+    const data = response.body;
+
+    if (!data.current) {
+      return {
+        ok: false,
+        text: '',
+        error: `${cityLabel} - respuesta sin datos actuales`
+      };
+    }
+
+    const temp = data.current.temp_c;
+    const condition =
+      data.current.condition && data.current.condition.text
+        ? data.current.condition.text
+        : 'Clima variable';
+
+    return {
+      ok: true,
+      text: `${cityLabel}: ${temp}°C · ${condition}`,
+      error: ''
+    };
+
+  } catch (error) {
+    return {
+      ok: false,
+      text: '',
+      error: `${cityLabel} - Error: ${error.message}`
+    };
+  }
 }
 
 async function updateWeatherInSheet(reason = 'scheduled') {
@@ -490,20 +464,16 @@ async function updateWeatherInSheet(reason = 'scheduled') {
   try {
     const sheets = getSheetsClient();
 
-    console.log(`🌦️ Updating weather in Google Sheets (${reason})...`);
+    console.log(`🌦️ Updating weather in Google Sheets with WeatherAPI (${reason})...`);
 
-    const cordoba = await getWeatherFromOpenMeteo(
-      -31.4201,
-      -64.1888,
-      'Córdoba',
-      'America/Argentina/Cordoba'
+    const cordoba = await getWeatherFromWeatherApi(
+      '-31.4201,-64.1888',
+      'Córdoba'
     );
 
-    const guatemala = await getWeatherFromOpenMeteo(
-      14.6417,
-      -90.5133,
-      'Ciudad de Guatemala',
-      'America/Guatemala'
+    const guatemala = await getWeatherFromWeatherApi(
+      '14.6417,-90.5133',
+      'Ciudad de Guatemala'
     );
 
     const nowText = moment()
@@ -525,7 +495,7 @@ async function updateWeatherInSheet(reason = 'scheduled') {
       },
       {
         range: "'Guía'!Z4",
-        values: [[`Origen: Render (${reason})`]]
+        values: [[`Origen: Render WeatherAPI (${reason})`]]
       }
     ];
 
