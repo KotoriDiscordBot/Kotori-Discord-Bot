@@ -62,7 +62,7 @@ const ROUTINE_CONFIGS = [
   {
     key: 'laura',
     displayName: 'Laura',
-    displayTitle: 'Laura💗',
+    displayTitle: 'Laura 💗',
     heart: '💗',
     sheetName: 'Bot Laura',
     userId: LAURA_USER_ID,
@@ -72,7 +72,7 @@ const ROUTINE_CONFIGS = [
   {
     key: 'mario',
     displayName: 'Mario',
-    displayTitle: 'Mario💚',
+    displayTitle: 'Mario 💚',
     heart: '💚',
     sheetName: 'Bot Mario',
     userId: MARIO_USER_ID,
