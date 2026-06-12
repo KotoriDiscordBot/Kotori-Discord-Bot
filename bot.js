@@ -37,7 +37,7 @@ const LAURA_USER_ID =
 const MARIO_USER_ID =
   process.env.MARIO_USER_ID || '883166860407869510';
 
-const AUTHORIZED_TEST_USERS = new Set([
+const AUTHORIZED_USERS = new Set([
   LAURA_USER_ID,
   MARIO_USER_ID
 ]);
@@ -50,13 +50,17 @@ const WEATHER_INTERVAL_MINUTES =
     ? rawWeatherIntervalMinutes
     : 120;
 
+// Está activado por defecto.
+// Si alguna vez querés pausarlo, agregá en Render:
+// ROUTINE_REMINDERS_ENABLED=false
 const ROUTINE_REMINDERS_ENABLED =
-  String(process.env.ROUTINE_REMINDERS_ENABLED || 'false').toLowerCase() === 'true';
+  String(process.env.ROUTINE_REMINDERS_ENABLED || 'true').toLowerCase() === 'true';
 
 const ROUTINE_CONFIGS = [
   {
     key: 'laura',
     displayName: 'Laura',
+    displayTitle: 'Laura💗',
     sheetName: 'Bot Laura',
     userId: LAURA_USER_ID,
     timezone: 'America/Argentina/Cordoba',
@@ -65,6 +69,7 @@ const ROUTINE_CONFIGS = [
   {
     key: 'mario',
     displayName: 'Mario',
+    displayTitle: 'Mario💚',
     sheetName: 'Bot Mario',
     userId: MARIO_USER_ID,
     timezone: 'America/Guatemala',
@@ -243,12 +248,12 @@ const commands = [
     .setDescription('Check how many links you have left'),
 
   new SlashCommandBuilder()
-    .setName('weather-test')
+    .setName('weather')
     .setDescription('Update weather in Google Sheets'),
 
   new SlashCommandBuilder()
-    .setName('routine-test')
-    .setDescription('Read Routine from Google Sheets')
+    .setName('routine')
+    .setDescription('Read today’s routine from Google Sheets')
 
 ].map(command => command.toJSON());
 
@@ -301,18 +306,6 @@ function formatRoutineActivityForList(row) {
 
   if (row.time) {
     return `${row.time} | ${activity}`;
-  }
-
-  return activity;
-}
-
-function formatRoutineActivityForReminder(row) {
-  const activity = String(row.activity || '').trim();
-
-  if (!activity) return '';
-
-  if (row.time) {
-    return `${row.time} • ${activity}`;
   }
 
   return activity;
@@ -635,15 +628,14 @@ async function readRoutineRows(config) {
     );
 }
 
-function formatRoutineRowsForTest(config, rows) {
+function buildRoutineDisplay(config, rows) {
   const scheduledRows = rows.filter(row => row.type === 'horario');
   const specialRows = rows.filter(row => row.type === 'especial');
 
   const lines = [];
 
-  lines.push(`**${config.displayName}**`);
-  lines.push('');
-  lines.push('Actividades de hoy:');
+  lines.push(`**${config.displayTitle}**`);
+  lines.push('**Actividades de hoy**');
 
   if (scheduledRows.length === 0) {
     lines.push('No hay actividades con horario.');
@@ -655,7 +647,7 @@ function formatRoutineRowsForTest(config, rows) {
 
   if (specialRows.length > 0) {
     lines.push('');
-    lines.push('Recordatorios especiales:');
+    lines.push('**Recordatorios especiales**');
 
     for (const row of specialRows) {
       const parts = String(row.activity)
@@ -676,50 +668,20 @@ function formatRoutineRowsForTest(config, rows) {
   return lines.join('\n');
 }
 
+function buildManualRoutineMessage(sections) {
+  return trimDiscordMessage(sections.join('\n\n'));
+}
+
 function buildDailyRoutineSummary(config, rows) {
   const now = moment().tz(config.timezone);
   const weekday = getSpanishWeekday(now);
 
-  const scheduledRows = rows.filter(row => row.type === 'horario');
-  const specialRows = rows.filter(row => row.type === 'especial');
-
   const lines = [];
 
-  lines.push(
-    `Feliz ${weekday} <@${config.userId}>, estas son tus actividades de hoy:`
-  );
-
+  lines.push(`<@${config.userId}>`);
+  lines.push(`Feliz ${weekday}`);
   lines.push('');
-
-  lines.push('Actividades de hoy:');
-
-  if (scheduledRows.length === 0) {
-    lines.push('No tenés actividades con horario cargadas para hoy.');
-  } else {
-    for (const row of scheduledRows) {
-      lines.push(formatRoutineActivityForList(row));
-    }
-  }
-
-  if (specialRows.length > 0) {
-    lines.push('');
-    lines.push('Recordatorios especiales:');
-
-    for (const row of specialRows) {
-      const parts = String(row.activity)
-        .split('\n')
-        .map(part => part.trim())
-        .filter(Boolean);
-
-      for (const part of parts) {
-        if (part.startsWith('•')) {
-          lines.push(part);
-        } else {
-          lines.push(`• ${part}`);
-        }
-      }
-    }
-  }
+  lines.push(buildRoutineDisplay(config, rows));
 
   return trimDiscordMessage(lines.join('\n'));
 }
@@ -798,13 +760,14 @@ async function sendTimedRemindersIfNeeded(config, channel) {
 
     const message =
       `<@${config.userId}>\n` +
-      `Recordatorio: ${formatRoutineActivityForReminder(row)}`;
+      `**Recordatorio**\n` +
+      `${formatRoutineActivityForList(row)}`;
 
     await channel.send(trimDiscordMessage(message));
     await markRoutineSent(sentKey);
 
     console.log(
-      `✅ Reminder sent for ${config.displayName}: ${formatRoutineActivityForReminder(row)}`
+      `✅ Reminder sent for ${config.displayName}: ${formatRoutineActivityForList(row)}`
     );
   }
 }
@@ -899,13 +862,13 @@ client.on('interactionCreate', async interaction => {
     const userId = interaction.user.id;
 
     const restrictedCommands = [
-      'routine-test',
-      'weather-test'
+      'routine',
+      'weather'
     ];
 
     if (
       restrictedCommands.includes(interaction.commandName) &&
-      !AUTHORIZED_TEST_USERS.has(userId)
+      !AUTHORIZED_USERS.has(userId)
     ) {
       return interaction.editReply({
         content: 'Este comando no está disponible.'
@@ -1063,30 +1026,28 @@ client.on('interactionCreate', async interaction => {
 
 
     // ====================================
-    // /WEATHER-TEST
+    // /WEATHER
     // ====================================
 
-    if (interaction.commandName === 'weather-test') {
+    if (interaction.commandName === 'weather') {
 
       const result = await updateWeatherInSheet('slash command');
 
       if (result.skipped) {
         return interaction.editReply({
-          content: 'Weather update was skipped because another update is already running.'
+          content: 'La actualización del clima se omitió porque ya hay otra actualización en curso.'
         });
       }
 
       const lines = [
-        'Weather update finished.',
+        '**Clima actualizado**',
         '',
         result.cordoba.ok
           ? `✅ ${result.cordoba.text}`
           : `⚠️ ${result.cordoba.error}`,
         result.guatemala.ok
           ? `✅ ${result.guatemala.text}`
-          : `⚠️ ${result.guatemala.error}`,
-        '',
-        'I updated the diagnostic cells in Guía!Z1:Z4 too.'
+          : `⚠️ ${result.guatemala.error}`
       ];
 
       return interaction.editReply({
@@ -1096,20 +1057,20 @@ client.on('interactionCreate', async interaction => {
 
 
     // ====================================
-    // /ROUTINE-TEST
+    // /ROUTINE
     // ====================================
 
-    if (interaction.commandName === 'routine-test') {
+    if (interaction.commandName === 'routine') {
 
       const sections = [];
 
       for (const config of ROUTINE_CONFIGS) {
         const rows = await readRoutineRows(config);
-        sections.push(formatRoutineRowsForTest(config, rows));
+        sections.push(buildRoutineDisplay(config, rows));
       }
 
       return interaction.editReply({
-        content: trimDiscordMessage(sections.join('\n\n'))
+        content: buildManualRoutineMessage(sections)
       });
     }
 
