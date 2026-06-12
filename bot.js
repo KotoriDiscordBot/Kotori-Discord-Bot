@@ -69,7 +69,7 @@ const ROUTINE_CONFIGS = [
     sheetName: 'Bot Laura',
     userId: LAURA_USER_ID,
     timezone: 'America/Argentina/Cordoba',
-    dailySummaryTime: '13:00'
+    dailySummaryTime: '11:00'
   },
   {
     key: 'mario',
@@ -80,7 +80,7 @@ const ROUTINE_CONFIGS = [
     sheetName: 'Bot Mario',
     userId: MARIO_USER_ID,
     timezone: 'America/Guatemala',
-    dailySummaryTime: '10:00'
+    dailySummaryTime: '08:00'
   }
 ];
 
