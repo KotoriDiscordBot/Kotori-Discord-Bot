@@ -908,7 +908,7 @@ client.on('interactionCreate', async interaction => {
       !AUTHORIZED_TEST_USERS.has(userId)
     ) {
       return interaction.editReply({
-        content: 'Este comando solo puede ser usado por Laura o Mario.'
+        content: 'Este comando no está disponible.'
       });
     }
 
