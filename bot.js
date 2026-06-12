@@ -53,7 +53,7 @@ const WEATHER_INTERVAL_MINUTES =
     : 60;
 
 // Está activado por defecto.
-// Si alguna vez querés pausarlo, agregá en Render:
+// Para pausarlo, usar en Render:
 // ROUTINE_REMINDERS_ENABLED=false
 const ROUTINE_REMINDERS_ENABLED =
   String(process.env.ROUTINE_REMINDERS_ENABLED || 'true').toLowerCase() === 'true';
@@ -103,9 +103,17 @@ function getSheetsClient() {
 
   const missing = [];
 
-  if (!GOOGLE_SHEET_ID) missing.push('GOOGLE_SHEET_ID');
-  if (!GOOGLE_SERVICE_ACCOUNT_EMAIL) missing.push('GOOGLE_SERVICE_ACCOUNT_EMAIL');
-  if (!GOOGLE_PRIVATE_KEY) missing.push('GOOGLE_PRIVATE_KEY');
+  if (!GOOGLE_SHEET_ID) {
+    missing.push('GOOGLE_SHEET_ID');
+  }
+
+  if (!GOOGLE_SERVICE_ACCOUNT_EMAIL) {
+    missing.push('GOOGLE_SERVICE_ACCOUNT_EMAIL');
+  }
+
+  if (!GOOGLE_PRIVATE_KEY) {
+    missing.push('GOOGLE_PRIVATE_KEY');
+  }
 
   if (missing.length > 0) {
     throw new Error(
@@ -149,28 +157,26 @@ process.on('warning', warning => {
 });
 
 process.on('SIGINT', async () => {
-
   console.log('⚠️ Bot shutting down (SIGINT)');
 
   try {
     await mongoClient.close();
     console.log('✅ MongoDB connection closed');
-  } catch (err) {
-    console.error('❌ Error while closing MongoDB:', err);
+  } catch (error) {
+    console.error('❌ Error while closing MongoDB:', error);
   }
 
   process.exit(0);
 });
 
 process.on('SIGTERM', async () => {
-
   console.log('⚠️ Bot shutting down (SIGTERM)');
 
   try {
     await mongoClient.close();
     console.log('✅ MongoDB connection closed');
-  } catch (err) {
-    console.error('❌ Error while closing MongoDB:', err);
+  } catch (error) {
+    console.error('❌ Error while closing MongoDB:', error);
   }
 
   process.exit(0);
@@ -216,14 +222,12 @@ client.on('invalidated', () => {
 // ========================================
 
 http.createServer((req, res) => {
-
   res.writeHead(200);
   res.end('Bot is awake!');
-
 }).listen(process.env.PORT || 3000, () => {
-
-  console.log(`🌐 Keepalive server running on port ${process.env.PORT || 3000}`);
-
+  console.log(
+    `🌐 Keepalive server running on port ${process.env.PORT || 3000}`
+  );
 });
 
 
@@ -232,10 +236,11 @@ http.createServer((req, res) => {
 // ========================================
 
 const commands = [
-
   new SlashCommandBuilder()
     .setName('add')
-    .setDescription('Save a link (use /get to randomly receive one of your saved links)')
+    .setDescription(
+      'Save a link (use /get to randomly receive one of your saved links)'
+    )
     .addStringOption(option =>
       option
         .setName('link')
@@ -258,7 +263,6 @@ const commands = [
   new SlashCommandBuilder()
     .setName('routine')
     .setDescription('Read today’s routine from Google Sheets')
-
 ].map(command => command.toJSON());
 
 
@@ -267,18 +271,24 @@ const commands = [
 // ========================================
 
 function trimDiscordMessage(message, maxLength = 1900) {
-  if (message.length <= maxLength) return message;
+  if (message.length <= maxLength) {
+    return message;
+  }
+
   return message.slice(0, maxLength - 20) + '\n\n...';
 }
 
 function normalizeTime(value) {
-  if (value === undefined || value === null) return '';
+  if (value === undefined || value === null) {
+    return '';
+  }
 
   const text = String(value).trim();
-
   const match = text.match(/(\d{1,2})[:.](\d{2})/);
 
-  if (!match) return text;
+  if (!match) {
+    return text;
+  }
 
   const hour = match[1].padStart(2, '0');
   const minute = match[2];
@@ -287,7 +297,9 @@ function normalizeTime(value) {
 }
 
 function isSendEnabled(value) {
-  if (value === undefined || value === null || value === '') return true;
+  if (value === undefined || value === null || value === '') {
+    return true;
+  }
 
   const text = String(value).trim().toLowerCase();
 
@@ -299,16 +311,65 @@ function isSendEnabled(value) {
   ].includes(text);
 }
 
-function formatRoutineActivityForList(row) {
+/*
+ * Si la actividad ya comienza con una hora:
+ *
+ * 14:00 • Turno médico
+ *
+ * toma esa hora y evita mostrar:
+ *
+ * 14:00 • 14:00 • Turno médico
+ *
+ * También preserva una hora interna distinta:
+ *
+ * Hora del bloque: 15:00
+ * Actividad: 15:30 • Turno médico
+ * Resultado visible: 15:30 • Turno médico
+ */
+function getFormattedRoutineActivity(row) {
   const activity = String(row.activity || '').trim();
 
-  if (!activity) return '';
+  if (!activity) {
+    return '';
+  }
+
+  const embeddedTimeMatch = activity.match(
+    /^(\d{1,2}:\d{2})\s*[•|]\s*(.+)$/s
+  );
+
+  if (embeddedTimeMatch) {
+    const embeddedTime = normalizeTime(embeddedTimeMatch[1]);
+    const activityText = embeddedTimeMatch[2].trim();
+
+    return `${embeddedTime} • ${activityText}`;
+  }
 
   if (row.time) {
-    return `${row.time} | ${activity}`;
+    return `${row.time} • ${activity}`;
   }
 
   return activity;
+}
+
+function formatSpecialReminder(part) {
+  const cleaned = String(part || '')
+    .trim()
+    .replace(/^•+\s*/, '')
+    .replace(/\s*•+$/, '')
+    .trim();
+
+  if (!cleaned) {
+    return '';
+  }
+
+  return `• ${cleaned} •`;
+}
+
+function getSpecialReminderLines(activity) {
+  return String(activity || '')
+    .split('\n')
+    .map(formatSpecialReminder)
+    .filter(Boolean);
 }
 
 function getSpanishWeekday(momentDate) {
@@ -353,7 +414,9 @@ function fetchJson(url) {
             parsed = JSON.parse(body);
           } catch (error) {
             return reject(
-              new Error('Could not parse JSON response: ' + error.message)
+              new Error(
+                'Could not parse JSON response: ' + error.message
+              )
             );
           }
 
@@ -400,7 +463,8 @@ async function getWeatherFromWeatherApi(query, cityLabel) {
   });
 
   const url =
-    'https://api.weatherapi.com/v1/current.json?' + params.toString();
+    'https://api.weatherapi.com/v1/current.json?' +
+    params.toString();
 
   try {
     const response = await fetchJson(url);
@@ -416,7 +480,9 @@ async function getWeatherFromWeatherApi(query, cityLabel) {
       return {
         ok: false,
         text: '',
-        error: `${cityLabel} - Código HTTP: ${response.statusCode}${apiMessage}`
+        error:
+          `${cityLabel} - Código HTTP: ` +
+          `${response.statusCode}${apiMessage}`
       };
     }
 
@@ -430,18 +496,19 @@ async function getWeatherFromWeatherApi(query, cityLabel) {
       };
     }
 
-    const temp = data.current.temp_c;
+    const temperature = data.current.temp_c;
+
     const condition =
-      data.current.condition && data.current.condition.text
+      data.current.condition &&
+      data.current.condition.text
         ? data.current.condition.text
         : 'Clima variable';
 
     return {
       ok: true,
-      text: `${cityLabel}: ${temp}°C · ${condition}`,
+      text: `${cityLabel}: ${temperature}°C · ${condition}`,
       error: ''
     };
-
   } catch (error) {
     return {
       ok: false,
@@ -464,7 +531,9 @@ async function updateWeatherInSheet(reason = 'scheduled') {
   try {
     const sheets = getSheetsClient();
 
-    console.log(`🌦️ Updating weather in Google Sheets with WeatherAPI (${reason})...`);
+    console.log(
+      `🌦️ Updating weather in Google Sheets with WeatherAPI (${reason})...`
+    );
 
     const cordoba = await getWeatherFromWeatherApi(
       '-31.4201,-64.1888',
@@ -487,15 +556,25 @@ async function updateWeatherInSheet(reason = 'scheduled') {
       },
       {
         range: "'Guía'!Z2",
-        values: [[cordoba.ok ? 'Córdoba OK' : cordoba.error]]
+        values: [[
+          cordoba.ok
+            ? 'Córdoba OK'
+            : cordoba.error
+        ]]
       },
       {
         range: "'Guía'!Z3",
-        values: [[guatemala.ok ? 'Guatemala OK' : guatemala.error]]
+        values: [[
+          guatemala.ok
+            ? 'Guatemala OK'
+            : guatemala.error
+        ]]
       },
       {
         range: "'Guía'!Z4",
-        values: [[`Origen: Render WeatherAPI (${reason})`]]
+        values: [[
+          `Origen: Render WeatherAPI (${reason})`
+        ]]
       }
     ];
 
@@ -522,34 +601,49 @@ async function updateWeatherInSheet(reason = 'scheduled') {
     });
 
     console.log('✅ Weather update finished.');
-    console.log(cordoba.ok ? `✅ ${cordoba.text}` : `⚠️ ${cordoba.error}`);
-    console.log(guatemala.ok ? `✅ ${guatemala.text}` : `⚠️ ${guatemala.error}`);
+
+    console.log(
+      cordoba.ok
+        ? `✅ ${cordoba.text}`
+        : `⚠️ ${cordoba.error}`
+    );
+
+    console.log(
+      guatemala.ok
+        ? `✅ ${guatemala.text}`
+        : `⚠️ ${guatemala.error}`
+    );
 
     return {
       skipped: false,
       cordoba,
       guatemala
     };
-
   } finally {
     weatherUpdateRunning = false;
   }
 }
 
 function startWeatherScheduler() {
-  if (weatherSchedulerStarted) return;
+  if (weatherSchedulerStarted) {
+    return;
+  }
 
   weatherSchedulerStarted = true;
 
   console.log(
-    `🌦️ Weather scheduler enabled. Interval: ${WEATHER_INTERVAL_MINUTES} minutes.`
+    `🌦️ Weather scheduler enabled. ` +
+    `Interval: ${WEATHER_INTERVAL_MINUTES} minutes.`
   );
 
   setTimeout(async () => {
     try {
       await updateWeatherInSheet('startup');
     } catch (error) {
-      console.error('❌ Weather startup update failed:', error);
+      console.error(
+        '❌ Weather startup update failed:',
+        error
+      );
     }
   }, 5000);
 
@@ -557,7 +651,10 @@ function startWeatherScheduler() {
     try {
       await updateWeatherInSheet('scheduled');
     } catch (error) {
-      console.error('❌ Scheduled weather update failed:', error);
+      console.error(
+        '❌ Scheduled weather update failed:',
+        error
+      );
     }
   }, WEATHER_INTERVAL_MINUTES * 60 * 1000);
 }
@@ -583,7 +680,10 @@ async function readRoutineRows(config) {
       const date = row[0] || '';
       const time = normalizeTime(row[1] || '');
       const activity = row[2] || '';
-      const type = String(row[3] || '').trim().toLowerCase();
+      const type = String(row[3] || '')
+        .trim()
+        .toLowerCase();
+
       const send = row[4];
 
       return {
@@ -600,9 +700,19 @@ async function readRoutineRows(config) {
     );
 }
 
+
+// ========================================
+// /ROUTINE DISPLAY
+// ========================================
+
 function buildRoutineDisplay(config, rows) {
-  const scheduledRows = rows.filter(row => row.type === 'horario');
-  const specialRows = rows.filter(row => row.type === 'especial');
+  const scheduledRows = rows.filter(
+    row => row.type === 'horario'
+  );
+
+  const specialRows = rows.filter(
+    row => row.type === 'especial'
+  );
 
   const lines = [];
 
@@ -613,7 +723,7 @@ function buildRoutineDisplay(config, rows) {
     lines.push('No hay actividades con horario.');
   } else {
     for (const row of scheduledRows) {
-      lines.push(formatRoutineActivityForList(row));
+      lines.push(getFormattedRoutineActivity(row));
     }
   }
 
@@ -622,18 +732,10 @@ function buildRoutineDisplay(config, rows) {
     lines.push('**Recordatorios especiales**');
 
     for (const row of specialRows) {
-      const parts = String(row.activity)
-        .split('\n')
-        .map(part => part.trim())
-        .filter(Boolean);
+      const specialLines =
+        getSpecialReminderLines(row.activity);
 
-      for (const part of parts) {
-        if (part.startsWith('•')) {
-          lines.push(part);
-        } else {
-          lines.push(`• ${part}`);
-        }
-      }
+      lines.push(...specialLines);
     }
   }
 
@@ -641,19 +743,34 @@ function buildRoutineDisplay(config, rows) {
 }
 
 function buildManualRoutineMessage(sections) {
-  return trimDiscordMessage(sections.join('\n\n'));
+  return trimDiscordMessage(
+    sections.join('\n\n')
+  );
 }
+
+
+// ========================================
+// DAILY ROUTINE DISPLAY
+// ========================================
 
 function buildDailyRoutineSummary(config, rows) {
   const now = moment().tz(config.timezone);
   const weekday = getSpanishWeekday(now);
 
-  const scheduledRows = rows.filter(row => row.type === 'horario');
-  const specialRows = rows.filter(row => row.type === 'especial');
+  const scheduledRows = rows.filter(
+    row => row.type === 'horario'
+  );
+
+  const specialRows = rows.filter(
+    row => row.type === 'especial'
+  );
 
   const lines = [];
 
-  lines.push(`Feliz ${weekday} <@${config.userId}> ${config.heart}`);
+  lines.push(
+    `Feliz ${weekday} <@${config.userId}> ${config.heart}`
+  );
+
   lines.push('');
   lines.push('');
   lines.push('**Actividades de hoy**');
@@ -662,7 +779,7 @@ function buildDailyRoutineSummary(config, rows) {
     lines.push('No hay actividades con horario.');
   } else {
     for (const row of scheduledRows) {
-      lines.push(formatRoutineActivityForList(row));
+      lines.push(getFormattedRoutineActivity(row));
     }
   }
 
@@ -671,43 +788,58 @@ function buildDailyRoutineSummary(config, rows) {
     lines.push('**Recordatorios especiales**');
 
     for (const row of specialRows) {
-      const parts = String(row.activity)
-        .split('\n')
-        .map(part => part.trim())
-        .filter(Boolean);
+      const specialLines =
+        getSpecialReminderLines(row.activity);
 
-      for (const part of parts) {
-        if (part.startsWith('•')) {
-          lines.push(part);
-        } else {
-          lines.push(`• ${part}`);
-        }
-      }
+      lines.push(...specialLines);
     }
   }
 
-  return trimDiscordMessage(lines.join('\n'));
+  return trimDiscordMessage(
+    lines.join('\n')
+  );
 }
 
+
+// ========================================
+// ROUTINE SENDING
+// ========================================
+
 async function getRoutineChannel() {
-  const channel = await client.channels.fetch(ROUTINE_CHANNEL_ID);
+  const channel = await client.channels.fetch(
+    ROUTINE_CHANNEL_ID
+  );
 
   if (!channel) {
-    throw new Error('Could not find routine channel.');
+    throw new Error(
+      'Could not find routine channel.'
+    );
+  }
+
+  if (!channel.isTextBased()) {
+    throw new Error(
+      'The routine channel is not text-based.'
+    );
   }
 
   return channel;
 }
 
 async function wasRoutineSent(key) {
-  if (!routineSentCollection) return false;
+  if (!routineSentCollection) {
+    return false;
+  }
 
-  const existing = await routineSentCollection.findOne({ key });
+  const existing =
+    await routineSentCollection.findOne({ key });
+
   return Boolean(existing);
 }
 
 async function markRoutineSent(key) {
-  if (!routineSentCollection) return;
+  if (!routineSentCollection) {
+    return;
+  }
 
   await routineSentCollection.updateOne(
     { key },
@@ -723,27 +855,43 @@ async function markRoutineSent(key) {
   );
 }
 
-async function sendDailySummaryIfNeeded(config, channel) {
+async function sendDailySummaryIfNeeded(
+  config,
+  channel
+) {
   const now = moment().tz(config.timezone);
   const currentTime = now.format('HH:mm');
 
-  if (currentTime !== config.dailySummaryTime) return;
+  if (currentTime !== config.dailySummaryTime) {
+    return;
+  }
 
   const dateKey = now.format('YYYY-MM-DD');
-  const sentKey = `${config.key}:${dateKey}:daily-summary`;
 
-  if (await wasRoutineSent(sentKey)) return;
+  const sentKey =
+    `${config.key}:${dateKey}:daily-summary`;
+
+  if (await wasRoutineSent(sentKey)) {
+    return;
+  }
 
   const rows = await readRoutineRows(config);
-  const message = buildDailyRoutineSummary(config, rows);
+
+  const message =
+    buildDailyRoutineSummary(config, rows);
 
   await channel.send(message);
   await markRoutineSent(sentKey);
 
-  console.log(`✅ Daily summary sent for ${config.displayName}`);
+  console.log(
+    `✅ Daily summary sent for ${config.displayName}`
+  );
 }
 
-async function sendTimedRemindersIfNeeded(config, channel) {
+async function sendTimedRemindersIfNeeded(
+  config,
+  channel
+) {
   const now = moment().tz(config.timezone);
   const currentTime = now.format('HH:mm');
   const dateKey = now.format('YYYY-MM-DD');
@@ -757,30 +905,50 @@ async function sendTimedRemindersIfNeeded(config, channel) {
 
   for (const row of dueRows) {
     const sentKey =
-      `${config.key}:${dateKey}:reminder:${row.time}:${row.activity}`;
+      `${config.key}:${dateKey}:reminder:` +
+      `${row.time}:${row.activity}`;
 
-    if (await wasRoutineSent(sentKey)) continue;
+    if (await wasRoutineSent(sentKey)) {
+      continue;
+    }
+
+    const formattedActivity =
+      getFormattedRoutineActivity(row);
 
     const message =
       `<@${config.userId}>\n` +
       `**Recordatorio**\n` +
-      `${formatRoutineActivityForList(row)}`;
+      formattedActivity;
 
-    await channel.send(trimDiscordMessage(message));
+    await channel.send(
+      trimDiscordMessage(message)
+    );
+
     await markRoutineSent(sentKey);
 
     console.log(
-      `✅ Reminder sent for ${config.displayName}: ${formatRoutineActivityForList(row)}`
+      `✅ Reminder sent for ${config.displayName}: ` +
+      formattedActivity
     );
   }
 }
+
+
+// ========================================
+// ROUTINE SCHEDULER
+// ========================================
 
 let routineSchedulerStarted = false;
 let routineCheckRunning = false;
 
 async function checkRoutineTasks() {
-  if (!ROUTINE_REMINDERS_ENABLED) return;
-  if (routineCheckRunning) return;
+  if (!ROUTINE_REMINDERS_ENABLED) {
+    return;
+  }
+
+  if (routineCheckRunning) {
+    return;
+  }
 
   routineCheckRunning = true;
 
@@ -788,35 +956,55 @@ async function checkRoutineTasks() {
     const channel = await getRoutineChannel();
 
     for (const config of ROUTINE_CONFIGS) {
-      await sendDailySummaryIfNeeded(config, channel);
-      await sendTimedRemindersIfNeeded(config, channel);
+      await sendDailySummaryIfNeeded(
+        config,
+        channel
+      );
+
+      await sendTimedRemindersIfNeeded(
+        config,
+        channel
+      );
     }
-
   } catch (error) {
-    console.error('❌ Routine check failed:', error);
-
+    console.error(
+      '❌ Routine check failed:',
+      error
+    );
   } finally {
     routineCheckRunning = false;
   }
 }
 
 function startRoutineScheduler() {
-  if (routineSchedulerStarted) return;
+  if (routineSchedulerStarted) {
+    return;
+  }
 
   routineSchedulerStarted = true;
 
   if (!ROUTINE_REMINDERS_ENABLED) {
     console.log(
-      '🕒 Routine reminders are disabled. Set ROUTINE_REMINDERS_ENABLED=true to enable them.'
+      '🕒 Routine reminders are disabled. ' +
+      'Set ROUTINE_REMINDERS_ENABLED=true to enable them.'
     );
+
     return;
   }
 
-  console.log('🕒 Routine reminder scheduler enabled.');
+  console.log(
+    '🕒 Routine reminder scheduler enabled.'
+  );
 
-  setTimeout(checkRoutineTasks, 5000);
+  setTimeout(
+    checkRoutineTasks,
+    5000
+  );
 
-  setInterval(checkRoutineTasks, 60 * 1000);
+  setInterval(
+    checkRoutineTasks,
+    60 * 1000
+  );
 }
 
 
@@ -825,27 +1013,35 @@ function startRoutineScheduler() {
 // ========================================
 
 client.once('ready', async () => {
-
   console.log(`✅ Logged in as ${client.user.tag}`);
 
   try {
-
-    const rest = new REST({ version: '10' })
-      .setToken(process.env.DISCORD_TOKEN);
-
-    await rest.put(
-      Routes.applicationCommands(client.user.id),
-      { body: commands }
+    const rest = new REST({
+      version: '10'
+    }).setToken(
+      process.env.DISCORD_TOKEN
     );
 
-    console.log('✅ Slash commands registered.');
+    await rest.put(
+      Routes.applicationCommands(
+        client.user.id
+      ),
+      {
+        body: commands
+      }
+    );
+
+    console.log(
+      '✅ Slash commands registered.'
+    );
 
     startWeatherScheduler();
     startRoutineScheduler();
-
-  } catch (err) {
-
-    console.error('❌ Failed during startup:', err);
+  } catch (error) {
+    console.error(
+      '❌ Failed during startup:',
+      error
+    );
   }
 });
 
@@ -854,259 +1050,309 @@ client.once('ready', async () => {
 // INTERACTIONS
 // ========================================
 
-client.on('interactionCreate', async interaction => {
-
-  try {
-
-    if (!interaction.isChatInputCommand()) return;
-
-    await interaction.deferReply();
-
-    const userId = interaction.user.id;
-
-    const restrictedCommands = [
-      'routine',
-      'weather'
-    ];
-
-    if (
-      restrictedCommands.includes(interaction.commandName) &&
-      !AUTHORIZED_USERS.has(userId)
-    ) {
-      return interaction.editReply({
-        content: 'Este comando no está disponible.'
-      });
-    }
-
-    // ====================================
-    // /ADD
-    // ====================================
-
-    if (interaction.commandName === 'add') {
-
-      const link = interaction.options.getString('link');
-
-      const existingUser = await linksCollection.findOne({
-        userId: userId
-      });
-
-      // DUPLICATE PREVENTION
-      if (
-        existingUser &&
-        existingUser.links.includes(link)
-      ) {
-
-        return interaction.editReply({
-          content: 'You already saved this link.'
-        });
+client.on(
+  'interactionCreate',
+  async interaction => {
+    try {
+      if (!interaction.isChatInputCommand()) {
+        return;
       }
 
-      await linksCollection.updateOne(
-        { userId: userId },
-        {
-          $push: {
-            links: link
-          }
-        },
-        {
-          upsert: true
-        }
-      );
+      await interaction.deferReply();
 
-      const updatedUser = await linksCollection.findOne({
-        userId: userId
-      });
+      const userId = interaction.user.id;
 
-      return interaction.editReply({
-        content:
-          `Link saved successfully\n` +
-          `Links saved: ${updatedUser.links.length}`
-      });
-    }
-
-
-    // ====================================
-    // /GET
-    // ====================================
-
-    if (interaction.commandName === 'get') {
-
-      const userData = await linksCollection.findOne({
-        userId: userId
-      });
-
-      if (!userData || !userData.links || userData.links.length === 0) {
-
-        return interaction.editReply({
-          content: 'You have no links saved'
-        });
-      }
-
-      // RANDOM ITEM
-      const randomIndex =
-        Math.floor(Math.random() * userData.links.length);
-
-      const selectedLink =
-        userData.links[randomIndex];
-
-      // REMOVE ITEM FOREVER
-      userData.links.splice(randomIndex, 1);
-
-      await linksCollection.updateOne(
-        { userId: userId },
-        {
-          $set: {
-            links: userData.links
-          }
-        }
-      );
-
-      let message =
-        `Here's one of your saved links:\n\n` +
-        `${selectedLink}\n\n`;
-
-      if (userData.links.length === 0) {
-
-        message += '(This was your last saved link)';
-
-      } else {
-
-        message +=
-          `Links remaining: ${userData.links.length}`;
-      }
-
-      // CHECK IF IT IS A VALID URL
-      const isValidUrl =
-        typeof selectedLink === 'string' &&
-        (
-          selectedLink.startsWith('http://') ||
-          selectedLink.startsWith('https://')
-        );
-
-      // IF URL -> SHOW BUTTON
-      if (isValidUrl) {
-
-        const row = new ActionRowBuilder()
-          .addComponents(
-            new ButtonBuilder()
-              .setLabel('Open link')
-              .setStyle(ButtonStyle.Link)
-              .setURL(selectedLink)
-          );
-
-        return interaction.editReply({
-          content: message,
-          components: [row]
-        });
-      }
-
-      // IF NOT URL -> NO BUTTON
-      return interaction.editReply({
-        content: message
-      });
-    }
-
-
-    // ====================================
-    // /COUNT
-    // ====================================
-
-    if (interaction.commandName === 'count') {
-
-      const userData = await linksCollection.findOne({
-        userId: userId
-      });
-
-      const count =
-        userData && userData.links
-          ? userData.links.length
-          : 0;
-
-      return interaction.editReply({
-        content: `You have ${count} links saved.`
-      });
-    }
-
-
-    // ====================================
-    // /WEATHER
-    // ====================================
-
-    if (interaction.commandName === 'weather') {
-
-      const result = await updateWeatherInSheet('slash command');
-
-      if (result.skipped) {
-        return interaction.editReply({
-          content: 'La actualización del clima se omitió porque ya hay otra actualización en curso.'
-        });
-      }
-
-      const lines = [
-        '**Clima actualizado**',
-        '',
-        result.cordoba.ok
-          ? `✅ ${result.cordoba.text}`
-          : `⚠️ ${result.cordoba.error}`,
-        result.guatemala.ok
-          ? `✅ ${result.guatemala.text}`
-          : `⚠️ ${result.guatemala.error}`
+      const restrictedCommands = [
+        'routine',
+        'weather'
       ];
 
-      return interaction.editReply({
-        content: trimDiscordMessage(lines.join('\n'))
-      });
-    }
-
-
-    // ====================================
-    // /ROUTINE
-    // ====================================
-
-    if (interaction.commandName === 'routine') {
-
-      const sections = [];
-
-      for (const config of ROUTINE_CONFIGS) {
-        const rows = await readRoutineRows(config);
-        sections.push(buildRoutineDisplay(config, rows));
-      }
-
-      return interaction.editReply({
-        content: buildManualRoutineMessage(sections)
-      });
-    }
-
-  } catch (error) {
-
-    console.error('❌ Interaction error:', error);
-
-    try {
-
-      if (interaction.deferred || interaction.replied) {
-
-        await interaction.editReply({
+      if (
+        restrictedCommands.includes(
+          interaction.commandName
+        ) &&
+        !AUTHORIZED_USERS.has(userId)
+      ) {
+        return interaction.editReply({
           content:
-            'Something went wrong while processing your request.\n\n' +
-            'Check the Render logs for the full error.'
-        });
-
-      } else {
-
-        await interaction.reply({
-          content:
-            'Something went wrong while processing your request.\n\n' +
-            'Check the Render logs for the full error.',
-          ephemeral: true
+            'Este comando no está disponible.'
         });
       }
 
-    } catch (err) {
 
-      console.error('❌ Failed to send error reply:', err);
+      // ==================================
+      // /ADD
+      // ==================================
+
+      if (interaction.commandName === 'add') {
+        const link =
+          interaction.options.getString('link');
+
+        const existingUser =
+          await linksCollection.findOne({
+            userId
+          });
+
+        if (
+          existingUser &&
+          Array.isArray(existingUser.links) &&
+          existingUser.links.includes(link)
+        ) {
+          return interaction.editReply({
+            content:
+              'You already saved this link.'
+          });
+        }
+
+        await linksCollection.updateOne(
+          {
+            userId
+          },
+          {
+            $push: {
+              links: link
+            }
+          },
+          {
+            upsert: true
+          }
+        );
+
+        const updatedUser =
+          await linksCollection.findOne({
+            userId
+          });
+
+        const linksCount =
+          updatedUser &&
+          Array.isArray(updatedUser.links)
+            ? updatedUser.links.length
+            : 0;
+
+        return interaction.editReply({
+          content:
+            `Link saved successfully\n` +
+            `Links saved: ${linksCount}`
+        });
+      }
+
+
+      // ==================================
+      // /GET
+      // ==================================
+
+      if (interaction.commandName === 'get') {
+        const userData =
+          await linksCollection.findOne({
+            userId
+          });
+
+        if (
+          !userData ||
+          !Array.isArray(userData.links) ||
+          userData.links.length === 0
+        ) {
+          return interaction.editReply({
+            content:
+              'You have no links saved'
+          });
+        }
+
+        const randomIndex =
+          Math.floor(
+            Math.random() *
+            userData.links.length
+          );
+
+        const selectedLink =
+          userData.links[randomIndex];
+
+        userData.links.splice(
+          randomIndex,
+          1
+        );
+
+        await linksCollection.updateOne(
+          {
+            userId
+          },
+          {
+            $set: {
+              links: userData.links
+            }
+          }
+        );
+
+        let message =
+          `Here's one of your saved links:\n\n` +
+          `${selectedLink}\n\n`;
+
+        if (userData.links.length === 0) {
+          message +=
+            '(This was your last saved link)';
+        } else {
+          message +=
+            `Links remaining: ` +
+            `${userData.links.length}`;
+        }
+
+        const isValidUrl =
+          typeof selectedLink === 'string' &&
+          (
+            selectedLink.startsWith('http://') ||
+            selectedLink.startsWith('https://')
+          );
+
+        if (isValidUrl) {
+          const row =
+            new ActionRowBuilder()
+              .addComponents(
+                new ButtonBuilder()
+                  .setLabel('Open link')
+                  .setStyle(
+                    ButtonStyle.Link
+                  )
+                  .setURL(selectedLink)
+              );
+
+          return interaction.editReply({
+            content: message,
+            components: [row]
+          });
+        }
+
+        return interaction.editReply({
+          content: message
+        });
+      }
+
+
+      // ==================================
+      // /COUNT
+      // ==================================
+
+      if (interaction.commandName === 'count') {
+        const userData =
+          await linksCollection.findOne({
+            userId
+          });
+
+        const count =
+          userData &&
+          Array.isArray(userData.links)
+            ? userData.links.length
+            : 0;
+
+        return interaction.editReply({
+          content:
+            `You have ${count} links saved.`
+        });
+      }
+
+
+      // ==================================
+      // /WEATHER
+      // ==================================
+
+      if (
+        interaction.commandName === 'weather'
+      ) {
+        const result =
+          await updateWeatherInSheet(
+            'slash command'
+          );
+
+        if (result.skipped) {
+          return interaction.editReply({
+            content:
+              'La actualización del clima se omitió ' +
+              'porque ya hay otra actualización en curso.'
+          });
+        }
+
+        const lines = [
+          '**Clima actualizado**',
+          '',
+          result.cordoba.ok
+            ? `✅ ${result.cordoba.text}`
+            : `⚠️ ${result.cordoba.error}`,
+          result.guatemala.ok
+            ? `✅ ${result.guatemala.text}`
+            : `⚠️ ${result.guatemala.error}`
+        ];
+
+        return interaction.editReply({
+          content:
+            trimDiscordMessage(
+              lines.join('\n')
+            )
+        });
+      }
+
+
+      // ==================================
+      // /ROUTINE
+      // ==================================
+
+      if (
+        interaction.commandName === 'routine'
+      ) {
+        const sections = [];
+
+        for (
+          const config of ROUTINE_CONFIGS
+        ) {
+          const rows =
+            await readRoutineRows(config);
+
+          sections.push(
+            buildRoutineDisplay(
+              config,
+              rows
+            )
+          );
+        }
+
+        return interaction.editReply({
+          content:
+            buildManualRoutineMessage(
+              sections
+            )
+        });
+      }
+    } catch (error) {
+      console.error(
+        '❌ Interaction error:',
+        error
+      );
+
+      try {
+        if (
+          interaction.deferred ||
+          interaction.replied
+        ) {
+          await interaction.editReply({
+            content:
+              'Something went wrong while processing your request.\n\n' +
+              'Check the Render logs for the full error.'
+          });
+        } else {
+          await interaction.reply({
+            content:
+              'Something went wrong while processing your request.\n\n' +
+              'Check the Render logs for the full error.',
+            ephemeral: true
+          });
+        }
+      } catch (replyError) {
+        console.error(
+          '❌ Failed to send error reply:',
+          replyError
+        );
+      }
     }
   }
-});
+);
 
 
 // ========================================
@@ -1114,11 +1360,17 @@ client.on('interactionCreate', async interaction => {
 // ========================================
 
 client.on('error', error => {
-  console.error('❌ Discord client error:', error);
+  console.error(
+    '❌ Discord client error:',
+    error
+  );
 });
 
 client.on('warn', warning => {
-  console.warn('⚠️ Discord warning:', warning);
+  console.warn(
+    '⚠️ Discord warning:',
+    warning
+  );
 });
 
 
@@ -1127,32 +1379,47 @@ client.on('warn', warning => {
 // ========================================
 
 async function startBot() {
-
   try {
-
-    console.log('🔄 Connecting to MongoDB...');
+    console.log(
+      '🔄 Connecting to MongoDB...'
+    );
 
     await mongoClient.connect();
 
-    console.log('✅ Connected to MongoDB');
+    console.log(
+      '✅ Connected to MongoDB'
+    );
 
-    const database = mongoClient.db('linkbot');
+    const database =
+      mongoClient.db('linkbot');
 
-    linksCollection = database.collection('links');
-    routineSentCollection = database.collection('routineSent');
+    linksCollection =
+      database.collection('links');
 
-    console.log('🔄 Logging into Discord...');
+    routineSentCollection =
+      database.collection('routineSent');
 
-    await client.login(process.env.DISCORD_TOKEN);
+    console.log(
+      '🔄 Logging into Discord...'
+    );
 
+    await client.login(
+      process.env.DISCORD_TOKEN
+    );
   } catch (error) {
+    console.error(
+      '❌ Failed during startup:',
+      error
+    );
 
-    console.error('❌ Failed during startup:', error);
+    console.log(
+      '🔄 Retrying startup in 10 seconds...'
+    );
 
-    // Retry after 10 seconds
-    console.log('🔄 Retrying startup in 10 seconds...');
-
-    setTimeout(startBot, 10000);
+    setTimeout(
+      startBot,
+      10000
+    );
   }
 }
 
