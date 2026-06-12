@@ -61,6 +61,7 @@ const ROUTINE_CONFIGS = [
     key: 'laura',
     displayName: 'Laura',
     displayTitle: 'Laura💗',
+    heart: '💗',
     sheetName: 'Bot Laura',
     userId: LAURA_USER_ID,
     timezone: 'America/Argentina/Cordoba',
@@ -70,6 +71,7 @@ const ROUTINE_CONFIGS = [
     key: 'mario',
     displayName: 'Mario',
     displayTitle: 'Mario💚',
+    heart: '💚',
     sheetName: 'Bot Mario',
     userId: MARIO_USER_ID,
     timezone: 'America/Guatemala',
@@ -676,12 +678,43 @@ function buildDailyRoutineSummary(config, rows) {
   const now = moment().tz(config.timezone);
   const weekday = getSpanishWeekday(now);
 
+  const scheduledRows = rows.filter(row => row.type === 'horario');
+  const specialRows = rows.filter(row => row.type === 'especial');
+
   const lines = [];
 
-  lines.push(`<@${config.userId}>`);
-  lines.push(`Feliz ${weekday}`);
+  lines.push(`Feliz ${weekday} <@${config.userId}> ${config.heart}`);
   lines.push('');
-  lines.push(buildRoutineDisplay(config, rows));
+  lines.push('');
+  lines.push('**Actividades de hoy**');
+
+  if (scheduledRows.length === 0) {
+    lines.push('No hay actividades con horario.');
+  } else {
+    for (const row of scheduledRows) {
+      lines.push(formatRoutineActivityForList(row));
+    }
+  }
+
+  if (specialRows.length > 0) {
+    lines.push('');
+    lines.push('**Recordatorios especiales**');
+
+    for (const row of specialRows) {
+      const parts = String(row.activity)
+        .split('\n')
+        .map(part => part.trim())
+        .filter(Boolean);
+
+      for (const part of parts) {
+        if (part.startsWith('•')) {
+          lines.push(part);
+        } else {
+          lines.push(`• ${part}`);
+        }
+      }
+    }
+  }
 
   return trimDiscordMessage(lines.join('\n'));
 }
