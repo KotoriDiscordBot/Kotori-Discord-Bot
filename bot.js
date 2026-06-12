@@ -14,7 +14,8 @@ const {
   REST,
   ActionRowBuilder,
   ButtonBuilder,
-  ButtonStyle
+  ButtonStyle,
+  EmbedBuilder
 } = require('discord.js');
 
 
@@ -64,6 +65,7 @@ const ROUTINE_CONFIGS = [
     displayName: 'Laura',
     displayTitle: 'Laura 💗',
     heart: '💗',
+    reminderColor: 0xcc2a80,
     sheetName: 'Bot Laura',
     userId: LAURA_USER_ID,
     timezone: 'America/Argentina/Cordoba',
@@ -74,6 +76,7 @@ const ROUTINE_CONFIGS = [
     displayName: 'Mario',
     displayTitle: 'Mario 💚',
     heart: '💚',
+    reminderColor: 0x3eb3b1,
     sheetName: 'Bot Mario',
     userId: MARIO_USER_ID,
     timezone: 'America/Guatemala',
@@ -912,24 +915,26 @@ async function sendTimedRemindersIfNeeded(
       continue;
     }
 
-    const formattedActivity =
-      getFormattedRoutineActivity(row);
+const formattedActivity =
+  getFormattedRoutineActivity(row);
 
-    const message =
-      `<@${config.userId}>\n` +
-      `**Recordatorio**\n` +
-      formattedActivity;
+const reminderEmbed =
+  new EmbedBuilder()
+    .setColor(config.reminderColor)
+    .setTitle('Recordatorio')
+    .setDescription(formattedActivity);
 
-    await channel.send(
-      trimDiscordMessage(message)
-    );
+await channel.send({
+  content: `<@${config.userId}>`,
+  embeds: [reminderEmbed]
+});
 
-    await markRoutineSent(sentKey);
+await markRoutineSent(sentKey);
 
-    console.log(
-      `✅ Reminder sent for ${config.displayName}: ` +
-      formattedActivity
-    );
+console.log(
+  `✅ Reminder sent for ${config.displayName}: ` +
+  formattedActivity
+);
   }
 }
 
