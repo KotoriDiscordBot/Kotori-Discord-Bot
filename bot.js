@@ -1,4 +1,4 @@
- require('dotenv').config();
+require('dotenv').config();
 
 const { MongoClient } = require('mongodb');
 const http = require('http');
@@ -36,6 +36,11 @@ const LAURA_USER_ID =
 
 const MARIO_USER_ID =
   process.env.MARIO_USER_ID || '883166860407869510';
+
+const AUTHORIZED_TEST_USERS = new Set([
+  LAURA_USER_ID,
+  MARIO_USER_ID
+]);
 
 const rawWeatherIntervalMinutes =
   Number(process.env.WEATHER_INTERVAL_MINUTES || 120);
@@ -239,11 +244,11 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName('weather-test')
-    .setDescription('Update weather in Google Sheets now'),
+    .setDescription('Update weather in Google Sheets'),
 
   new SlashCommandBuilder()
     .setName('routine-test')
-    .setDescription('Read Bot Laura and Bot Mario from Google Sheets')
+    .setDescription('Read Routine from Google Sheets')
 
 ].map(command => command.toJSON());
 
@@ -289,17 +294,22 @@ function isSendEnabled(value) {
   ].includes(text);
 }
 
-function formatRoutineActivity(row) {
+function formatRoutineActivityForList(row) {
   const activity = String(row.activity || '').trim();
 
   if (!activity) return '';
 
-  const alreadyStartsWithTime =
-    /^\d{1,2}:\d{2}\s*•/.test(activity);
-
-  if (alreadyStartsWithTime) {
-    return activity;
+  if (row.time) {
+    return `${row.time} | ${activity}`;
   }
+
+  return activity;
+}
+
+function formatRoutineActivityForReminder(row) {
+  const activity = String(row.activity || '').trim();
+
+  if (!activity) return '';
 
   if (row.time) {
     return `${row.time} • ${activity}`;
@@ -626,25 +636,44 @@ async function readRoutineRows(config) {
 }
 
 function formatRoutineRowsForTest(config, rows) {
-  const header = `### ${config.displayName}`;
+  const scheduledRows = rows.filter(row => row.type === 'horario');
+  const specialRows = rows.filter(row => row.type === 'especial');
 
-  if (rows.length === 0) {
-    return `${header}\nNo encontré actividades.`;
+  const lines = [];
+
+  lines.push(`**${config.displayName}**`);
+  lines.push('');
+  lines.push('Actividades de hoy:');
+
+  if (scheduledRows.length === 0) {
+    lines.push('No hay actividades con horario.');
+  } else {
+    for (const row of scheduledRows) {
+      lines.push(formatRoutineActivityForList(row));
+    }
   }
 
-  const lines = rows
-    .slice(0, 20)
-    .map(row => {
-      const type = row.type || 'sin tipo';
-      const time = row.time || 'sin hora';
-      return `- ${time} | ${row.activity} | ${type}`;
-    });
+  if (specialRows.length > 0) {
+    lines.push('');
+    lines.push('Recordatorios especiales:');
 
-  if (rows.length > 20) {
-    lines.push(`- ... y ${rows.length - 20} más`);
+    for (const row of specialRows) {
+      const parts = String(row.activity)
+        .split('\n')
+        .map(part => part.trim())
+        .filter(Boolean);
+
+      for (const part of parts) {
+        if (part.startsWith('•')) {
+          lines.push(part);
+        } else {
+          lines.push(`• ${part}`);
+        }
+      }
+    }
   }
 
-  return `${header}\n${lines.join('\n')}`;
+  return lines.join('\n');
 }
 
 function buildDailyRoutineSummary(config, rows) {
@@ -662,11 +691,13 @@ function buildDailyRoutineSummary(config, rows) {
 
   lines.push('');
 
+  lines.push('Actividades de hoy:');
+
   if (scheduledRows.length === 0) {
     lines.push('No tenés actividades con horario cargadas para hoy.');
   } else {
     for (const row of scheduledRows) {
-      lines.push(formatRoutineActivity(row));
+      lines.push(formatRoutineActivityForList(row));
     }
   }
 
@@ -767,13 +798,13 @@ async function sendTimedRemindersIfNeeded(config, channel) {
 
     const message =
       `<@${config.userId}>\n` +
-      `Recordatorio: ${formatRoutineActivity(row)}`;
+      `Recordatorio: ${formatRoutineActivityForReminder(row)}`;
 
     await channel.send(trimDiscordMessage(message));
     await markRoutineSent(sentKey);
 
     console.log(
-      `✅ Reminder sent for ${config.displayName}: ${formatRoutineActivity(row)}`
+      `✅ Reminder sent for ${config.displayName}: ${formatRoutineActivityForReminder(row)}`
     );
   }
 }
@@ -866,6 +897,20 @@ client.on('interactionCreate', async interaction => {
     await interaction.deferReply();
 
     const userId = interaction.user.id;
+
+    const restrictedCommands = [
+      'routine-test',
+      'weather-test'
+    ];
+
+    if (
+      restrictedCommands.includes(interaction.commandName) &&
+      !AUTHORIZED_TEST_USERS.has(userId)
+    ) {
+      return interaction.editReply({
+        content: 'Este comando solo puede ser usado por Laura o Mario.'
+      });
+    }
 
     // ====================================
     // /ADD
