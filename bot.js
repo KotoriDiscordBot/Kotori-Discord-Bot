@@ -525,97 +525,94 @@ async function getWeatherFromWeatherApi(query, cityLabel) {
   }
 }
 async function getDailyForecastFromWeatherApi(query, cityLabel) {
-if (!WEATHER_API_KEY) {
-return {
-ok: false,
-text: '',
-error: `${cityLabel} - falta WEATHER_API_KEY en Render`
-};
-}
+  if (!WEATHER_API_KEY) {
+    return {
+      ok: false,
+      text: '',
+      error: `${cityLabel} - falta WEATHER_API_KEY en Render`
+    };
+  }
 
-const params = new URLSearchParams({
-key: WEATHER_API_KEY,
-q: query,
-days: '1',
-aqi: 'no',
-alerts: 'no',
-lang: 'es'
-});
+  const params = new URLSearchParams({
+    key: WEATHER_API_KEY,
+    q: query,
+    days: '1',
+    aqi: 'no',
+    alerts: 'no',
+    lang: 'es'
+  });
 
-const url =
-'https://api.weatherapi.com/v1/forecast.json?' +
-params.toString();
+  const url =
+    'https://api.weatherapi.com/v1/forecast.json?' +
+    params.toString();
 
-try {
-const response = await fetchJson(url);
+  try {
+    const response = await fetchJson(url);
 
-```
-if (response.statusCode !== 200) {
-  const apiMessage =
-    response.body &&
-    response.body.error &&
-    response.body.error.message
-      ? ` - ${response.body.error.message}`
-      : '';
+    if (response.statusCode !== 200) {
+      const apiMessage =
+        response.body &&
+        response.body.error &&
+        response.body.error.message
+          ? ` - ${response.body.error.message}`
+          : '';
 
-  return {
-    ok: false,
-    text: '',
-    error:
-      `${cityLabel} - Código HTTP: ` +
-      `${response.statusCode}${apiMessage}`
-  };
-}
+      return {
+        ok: false,
+        text: '',
+        error:
+          `${cityLabel} - Código HTTP: ` +
+          `${response.statusCode}${apiMessage}`
+      };
+    }
 
-const forecastDays =
-  response.body &&
-  response.body.forecast &&
-  response.body.forecast.forecastday;
+    const forecastDays =
+      response.body &&
+      response.body.forecast &&
+      response.body.forecast.forecastday;
 
-if (
-  !Array.isArray(forecastDays) ||
-  forecastDays.length === 0 ||
-  !forecastDays[0].day
-) {
-  return {
-    ok: false,
-    text: '',
-    error: `${cityLabel} - respuesta sin pronóstico diario`
-  };
-}
+    if (
+      !Array.isArray(forecastDays) ||
+      forecastDays.length === 0 ||
+      !forecastDays[0].day
+    ) {
+      return {
+        ok: false,
+        text: '',
+        error: `${cityLabel} - respuesta sin pronóstico diario`
+      };
+    }
 
-const day = forecastDays[0].day;
+    const day = forecastDays[0].day;
 
-const minimum = Math.round(day.mintemp_c);
-const maximum = Math.round(day.maxtemp_c);
+    const minimum = Math.round(day.mintemp_c);
+    const maximum = Math.round(day.maxtemp_c);
 
-const condition =
-  day.condition && day.condition.text
-    ? day.condition.text
-    : 'Clima variable';
+    const condition =
+      day.condition && day.condition.text
+        ? day.condition.text
+        : 'Clima variable';
 
-const rainChance =
-  day.daily_chance_of_rain !== undefined
-    ? Number(day.daily_chance_of_rain)
-    : 0;
+    const rainChance =
+      day.daily_chance_of_rain !== undefined
+        ? Number(day.daily_chance_of_rain)
+        : 0;
 
-return {
-  ok: true,
-  text:
-    `**Clima para hoy en ${cityLabel}**\n` +
-    `Mínima: ${minimum}°C • Máxima: ${maximum}°C\n` +
-    `${condition} • ${rainChance}% de probabilidad de lluvia`,
-  error: ''
-};
-```
-
-} catch (error) {
-return {
-ok: false,
-text: '',
-error: `${cityLabel} - Error: ${error.message}`
-};
-}
+    return {
+      ok: true,
+      text:
+        `**Clima para hoy en ${cityLabel}**\n` +
+        `Mínima: ${minimum}°C • Máxima: ${maximum}°C\n` +
+        `${condition} • ${rainChance}% de probabilidad de lluvia`,
+      error: ''
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      text: '',
+      error: `${cityLabel} - Error: ${error.message}`
+    };
+  }
 }
 
 async function updateWeatherInSheet(reason = 'scheduled') {
@@ -854,63 +851,57 @@ function buildManualRoutineMessage(sections) {
 // ========================================
 
 function buildDailyRoutineSummary(config, rows, forecast) {
-const scheduledRows = rows.filter(
-row => row.type === 'horario'
-);
+  const scheduledRows = rows.filter(
+    row => row.type === 'horario'
+  );
 
-const specialRows = rows.filter(
-row => row.type === 'especial'
-);
+  const specialRows = rows.filter(
+    row => row.type === 'especial'
+  );
 
-const lines = [];
+  const lines = [];
 
-lines.push('**Actividades de hoy**');
+  lines.push('**Actividades de hoy**');
 
-if (scheduledRows.length === 0) {
-lines.push('No hay actividades con horario.');
-} else {
-for (const row of scheduledRows) {
-lines.push(
-getFormattedRoutineActivity(row)
-);
-}
-}
+  if (scheduledRows.length === 0) {
+    lines.push('No hay actividades con horario.');
+  } else {
+    for (const row of scheduledRows) {
+      lines.push(
+        getFormattedRoutineActivity(row)
+      );
+    }
+  }
 
-if (specialRows.length > 0) {
-lines.push('');
-lines.push('**Recordatorios especiales**');
+  if (specialRows.length > 0) {
+    lines.push('');
+    lines.push('**Recordatorios especiales**');
 
-```
-for (const row of specialRows) {
-  const specialLines =
-    getSpecialReminderLines(row.activity);
+    for (const row of specialRows) {
+      const specialLines =
+        getSpecialReminderLines(row.activity);
 
-  lines.push(...specialLines);
-}
-```
+      lines.push(...specialLines);
+    }
+  }
 
-}
+  lines.push('');
 
-lines.push('');
+  if (forecast.ok) {
+    lines.push(forecast.text);
+  } else {
+    lines.push(
+      `**Clima para hoy en ${config.weatherLabel}**`
+    );
 
-if (forecast.ok) {
-lines.push(forecast.text);
-} else {
-lines.push(
-`**Clima para hoy en ${config.weatherLabel}**`
-);
+    lines.push(
+      'No se pudo obtener el pronóstico.'
+    );
+  }
 
-```
-lines.push(
-  'No se pudo obtener el pronóstico.'
-);
-```
-
-}
-
-return new EmbedBuilder()
-.setColor(config.reminderColor)
-.setDescription(lines.join('\n'));
+  return new EmbedBuilder()
+    .setColor(config.reminderColor)
+    .setDescription(lines.join('\n'));
 }
 
 
