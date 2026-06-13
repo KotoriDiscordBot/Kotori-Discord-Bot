@@ -68,6 +68,7 @@ const ROUTINE_CONFIGS = [
     reminderColor: 0xcc2a80,
     forecastQuery: '-31.4201,-64.1888',
     weatherLabel: 'Córdoba',
+    diarySheetName: 'Diario Laura',
     sheetName: 'Bot Laura',
     userId: LAURA_USER_ID,
     timezone: 'America/Argentina/Cordoba',
@@ -81,6 +82,7 @@ const ROUTINE_CONFIGS = [
     reminderColor: 0x3eb3b1,
     forecastQuery: '14.6417,-90.5133',
     weatherLabel: 'Ciudad de Guatemala',
+    diarySheetName: 'Diario Mario',
     sheetName: 'Bot Mario',
     userId: MARIO_USER_ID,
     timezone: 'America/Guatemala',
@@ -796,7 +798,37 @@ async function readRoutineRows(config) {
       row.sendEnabled
     );
 }
+async function readDailyNote(config) {
+  try {
+    const sheets = getSheetsClient();
 
+    const response =
+      await sheets.spreadsheets.values.get({
+        spreadsheetId: GOOGLE_SHEET_ID,
+        range: `'${config.diarySheetName}'!G6`,
+        valueRenderOption: 'FORMATTED_VALUE'
+      });
+
+    const values = response.data.values || [];
+
+    if (
+      values.length === 0 ||
+      !values[0] ||
+      values[0][0] === undefined
+    ) {
+      return '';
+    }
+
+    return String(values[0][0]).trim();
+  } catch (error) {
+    console.error(
+      `❌ Could not read notes for ${config.displayName}:`,
+      error
+    );
+
+    return '';
+  }
+}
 
 // ========================================
 // /ROUTINE DISPLAY
@@ -850,59 +882,65 @@ function buildManualRoutineMessage(sections) {
 // DAILY ROUTINE DISPLAY
 // ========================================
 
-function buildDailyRoutineSummary(config, rows, forecast) {
-  const scheduledRows = rows.filter(
-    row => row.type === 'horario'
-  );
+function buildDailyRoutineSummary(
+config,
+rows,
+note,
+forecast
+) {
+const scheduledRows = rows.filter(
+row => row.type === 'horario'
+);
 
-  const specialRows = rows.filter(
-    row => row.type === 'especial'
-  );
+const specialRows = rows.filter(
+row => row.type === 'especial'
+);
 
-  const lines = [];
+const lines = [];
 
-  lines.push('**Actividades de hoy**');
+lines.push('**Actividades de hoy**');
 
-  if (scheduledRows.length === 0) {
-    lines.push('No hay actividades con horario.');
-  } else {
-    for (const row of scheduledRows) {
-      lines.push(
-        getFormattedRoutineActivity(row)
-      );
-    }
-  }
-
-  if (specialRows.length > 0) {
-    lines.push('');
-    lines.push('**Recordatorios especiales**');
-
-    for (const row of specialRows) {
-      const specialLines =
-        getSpecialReminderLines(row.activity);
-
-      lines.push(...specialLines);
-    }
-  }
-
-  lines.push('');
-
-  if (forecast.ok) {
-    lines.push(forecast.text);
-  } else {
-    lines.push(
-      `**Clima para hoy en ${config.weatherLabel}**`
-    );
-
-    lines.push(
-      'No se pudo obtener el pronóstico.'
-    );
-  }
-
-  return new EmbedBuilder()
-    .setColor(config.reminderColor)
-    .setDescription(lines.join('\n'));
+if (scheduledRows.length === 0) {
+lines.push('No hay actividades con horario.');
+} else {
+for (const row of scheduledRows) {
+lines.push(
+getFormattedRoutineActivity(row)
+);
 }
+}
+
+if (specialRows.length > 0) {
+lines.push('');
+lines.push('**Recordatorios especiales**');
+
+```
+for (const row of specialRows) {
+  const specialLines =
+    getSpecialReminderLines(row.activity);
+
+  lines.push(...specialLines);
+}
+```
+
+}
+
+if (note) {
+lines.push('');
+lines.push('**Notas**');
+lines.push(note);
+}
+
+if (forecast.ok) {
+lines.push('');
+lines.push(forecast.text);
+}
+
+return new EmbedBuilder()
+.setColor(config.reminderColor)
+.setDescription(lines.join('\n'));
+}
+
 
 
 // ========================================
@@ -982,6 +1020,9 @@ return;
 const rows =
 await readRoutineRows(config);
 
+const note =
+await readDailyNote(config);
+
 const forecast =
 await getDailyForecastFromWeatherApi(
 config.forecastQuery,
@@ -995,6 +1036,7 @@ const summaryEmbed =
 buildDailyRoutineSummary(
 config,
 rows,
+note,
 forecast
 );
 
