@@ -66,6 +66,8 @@ const ROUTINE_CONFIGS = [
     displayTitle: 'Laura 💗',
     heart: '💗',
     reminderColor: 0xcc2a80,
+    forecastQuery: '-31.4201,-64.1888',
+    weatherLabel: 'Córdoba',
     sheetName: 'Bot Laura',
     userId: LAURA_USER_ID,
     timezone: 'America/Argentina/Cordoba',
@@ -77,6 +79,8 @@ const ROUTINE_CONFIGS = [
     displayTitle: 'Mario 💚',
     heart: '💚',
     reminderColor: 0x3eb3b1,
+    forecastQuery: '14.6417,-90.5133',
+    weatherLabel: 'Ciudad de Guatemala',
     sheetName: 'Bot Mario',
     userId: MARIO_USER_ID,
     timezone: 'America/Guatemala',
@@ -520,6 +524,99 @@ async function getWeatherFromWeatherApi(query, cityLabel) {
     };
   }
 }
+async function getDailyForecastFromWeatherApi(query, cityLabel) {
+if (!WEATHER_API_KEY) {
+return {
+ok: false,
+text: '',
+error: `${cityLabel} - falta WEATHER_API_KEY en Render`
+};
+}
+
+const params = new URLSearchParams({
+key: WEATHER_API_KEY,
+q: query,
+days: '1',
+aqi: 'no',
+alerts: 'no',
+lang: 'es'
+});
+
+const url =
+'https://api.weatherapi.com/v1/forecast.json?' +
+params.toString();
+
+try {
+const response = await fetchJson(url);
+
+```
+if (response.statusCode !== 200) {
+  const apiMessage =
+    response.body &&
+    response.body.error &&
+    response.body.error.message
+      ? ` - ${response.body.error.message}`
+      : '';
+
+  return {
+    ok: false,
+    text: '',
+    error:
+      `${cityLabel} - Código HTTP: ` +
+      `${response.statusCode}${apiMessage}`
+  };
+}
+
+const forecastDays =
+  response.body &&
+  response.body.forecast &&
+  response.body.forecast.forecastday;
+
+if (
+  !Array.isArray(forecastDays) ||
+  forecastDays.length === 0 ||
+  !forecastDays[0].day
+) {
+  return {
+    ok: false,
+    text: '',
+    error: `${cityLabel} - respuesta sin pronóstico diario`
+  };
+}
+
+const day = forecastDays[0].day;
+
+const minimum = Math.round(day.mintemp_c);
+const maximum = Math.round(day.maxtemp_c);
+
+const condition =
+  day.condition && day.condition.text
+    ? day.condition.text
+    : 'Clima variable';
+
+const rainChance =
+  day.daily_chance_of_rain !== undefined
+    ? Number(day.daily_chance_of_rain)
+    : 0;
+
+return {
+  ok: true,
+  text:
+    `**Clima para hoy en ${cityLabel}**\n` +
+    `Mínima: ${minimum}°C • Máxima: ${maximum}°C\n` +
+    `${condition} • ${rainChance}% de probabilidad de lluvia`,
+  error: ''
+};
+```
+
+} catch (error) {
+return {
+ok: false,
+text: '',
+error: `${cityLabel} - Error: ${error.message}`
+};
+}
+}
 
 async function updateWeatherInSheet(reason = 'scheduled') {
   if (weatherUpdateRunning) {
@@ -756,51 +853,64 @@ function buildManualRoutineMessage(sections) {
 // DAILY ROUTINE DISPLAY
 // ========================================
 
-function buildDailyRoutineSummary(config, rows) {
-  const now = moment().tz(config.timezone);
-  const weekday = getSpanishWeekday(now);
+function buildDailyRoutineSummary(config, rows, forecast) {
+const scheduledRows = rows.filter(
+row => row.type === 'horario'
+);
 
-  const scheduledRows = rows.filter(
-    row => row.type === 'horario'
-  );
+const specialRows = rows.filter(
+row => row.type === 'especial'
+);
 
-  const specialRows = rows.filter(
-    row => row.type === 'especial'
-  );
+const lines = [];
 
-  const lines = [];
+lines.push('**Actividades de hoy**');
 
-  lines.push(
-    `Feliz ${weekday} <@${config.userId}> ${config.heart}`
-  );
+if (scheduledRows.length === 0) {
+lines.push('No hay actividades con horario.');
+} else {
+for (const row of scheduledRows) {
+lines.push(
+getFormattedRoutineActivity(row)
+);
+}
+}
 
-  lines.push('');
-  lines.push('');
-  lines.push('**Actividades de hoy**');
+if (specialRows.length > 0) {
+lines.push('');
+lines.push('**Recordatorios especiales**');
 
-  if (scheduledRows.length === 0) {
-    lines.push('No hay actividades con horario.');
-  } else {
-    for (const row of scheduledRows) {
-      lines.push(getFormattedRoutineActivity(row));
-    }
-  }
+```
+for (const row of specialRows) {
+  const specialLines =
+    getSpecialReminderLines(row.activity);
 
-  if (specialRows.length > 0) {
-    lines.push('');
-    lines.push('**Recordatorios especiales**');
+  lines.push(...specialLines);
+}
+```
 
-    for (const row of specialRows) {
-      const specialLines =
-        getSpecialReminderLines(row.activity);
+}
 
-      lines.push(...specialLines);
-    }
-  }
+lines.push('');
 
-  return trimDiscordMessage(
-    lines.join('\n')
-  );
+if (forecast.ok) {
+lines.push(forecast.text);
+} else {
+lines.push(
+`**Clima para hoy en ${config.weatherLabel}**`
+);
+
+```
+lines.push(
+  'No se pudo obtener el pronóstico.'
+);
+```
+
+}
+
+return new EmbedBuilder()
+.setColor(config.reminderColor)
+.setDescription(lines.join('\n'));
 }
 
 
@@ -859,36 +969,56 @@ async function markRoutineSent(key) {
 }
 
 async function sendDailySummaryIfNeeded(
-  config,
-  channel
+config,
+channel
 ) {
-  const now = moment().tz(config.timezone);
-  const currentTime = now.format('HH:mm');
+const now = moment().tz(config.timezone);
+const currentTime = now.format('HH:mm');
 
-  if (currentTime !== config.dailySummaryTime) {
-    return;
-  }
+if (currentTime !== config.dailySummaryTime) {
+return;
+}
 
-  const dateKey = now.format('YYYY-MM-DD');
+const dateKey = now.format('YYYY-MM-DD');
 
-  const sentKey =
-    `${config.key}:${dateKey}:daily-summary`;
+const sentKey =
+`${config.key}:${dateKey}:daily-summary`;
 
-  if (await wasRoutineSent(sentKey)) {
-    return;
-  }
+if (await wasRoutineSent(sentKey)) {
+return;
+}
 
-  const rows = await readRoutineRows(config);
+const rows =
+await readRoutineRows(config);
 
-  const message =
-    buildDailyRoutineSummary(config, rows);
+const forecast =
+await getDailyForecastFromWeatherApi(
+config.forecastQuery,
+config.weatherLabel
+);
 
-  await channel.send(message);
-  await markRoutineSent(sentKey);
+const weekday =
+getSpanishWeekday(now);
 
-  console.log(
-    `✅ Daily summary sent for ${config.displayName}`
-  );
+const summaryEmbed =
+buildDailyRoutineSummary(
+config,
+rows,
+forecast
+);
+
+await channel.send({
+content:
+`Feliz ${weekday} ` +
+`<@${config.userId}> ${config.heart}`,
+embeds: [summaryEmbed]
+});
+
+await markRoutineSent(sentKey);
+
+console.log(
+`✅ Daily summary sent for ${config.displayName}`
+);
 }
 
 async function sendTimedRemindersIfNeeded(
