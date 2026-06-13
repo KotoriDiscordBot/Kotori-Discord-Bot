@@ -883,65 +883,60 @@ function buildManualRoutineMessage(sections) {
 // ========================================
 
 function buildDailyRoutineSummary(
-config,
-rows,
-note,
-forecast
+  config,
+  rows,
+  note,
+  forecast
 ) {
-const scheduledRows = rows.filter(
-row => row.type === 'horario'
-);
+  const scheduledRows = rows.filter(
+    row => row.type === 'horario'
+  );
 
-const specialRows = rows.filter(
-row => row.type === 'especial'
-);
+  const specialRows = rows.filter(
+    row => row.type === 'especial'
+  );
 
-const lines = [];
+  const lines = [];
 
-lines.push('**Actividades de hoy**');
+  lines.push('**Actividades de hoy**');
 
-if (scheduledRows.length === 0) {
-lines.push('No hay actividades con horario.');
-} else {
-for (const row of scheduledRows) {
-lines.push(
-getFormattedRoutineActivity(row)
-);
+  if (scheduledRows.length === 0) {
+    lines.push('No hay actividades con horario.');
+  } else {
+    for (const row of scheduledRows) {
+      lines.push(
+        getFormattedRoutineActivity(row)
+      );
+    }
+  }
+
+  if (specialRows.length > 0) {
+    lines.push('');
+    lines.push('**Recordatorios especiales**');
+
+    for (const row of specialRows) {
+      const specialLines =
+        getSpecialReminderLines(row.activity);
+
+      lines.push(...specialLines);
+    }
+  }
+
+  if (note) {
+    lines.push('');
+    lines.push('**Notas**');
+    lines.push(note);
+  }
+
+  if (forecast.ok) {
+    lines.push('');
+    lines.push(forecast.text);
+  }
+
+  return new EmbedBuilder()
+    .setColor(config.reminderColor)
+    .setDescription(lines.join('\n'));
 }
-}
-
-if (specialRows.length > 0) {
-lines.push('');
-lines.push('**Recordatorios especiales**');
-
-```
-for (const row of specialRows) {
-  const specialLines =
-    getSpecialReminderLines(row.activity);
-
-  lines.push(...specialLines);
-}
-```
-
-}
-
-if (note) {
-lines.push('');
-lines.push('**Notas**');
-lines.push(note);
-}
-
-if (forecast.ok) {
-lines.push('');
-lines.push(forecast.text);
-}
-
-return new EmbedBuilder()
-.setColor(config.reminderColor)
-.setDescription(lines.join('\n'));
-}
-
-
 
 // ========================================
 // ROUTINE SENDING
