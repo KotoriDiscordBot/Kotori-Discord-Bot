@@ -1048,7 +1048,37 @@ console.log(
 `✅ Daily summary sent for ${config.displayName}`
 );
 }
+async function sendThursdayGifIfNeeded(channel) {
+  const now = moment().tz(
+    'America/Argentina/Cordoba'
+  );
 
+  const isThursday = now.day() === 4;
+  const currentTime = now.format('HH:mm');
+
+  if (!isThursday || currentTime !== '11:00') {
+    return;
+  }
+
+  const dateKey = now.format('YYYY-MM-DD');
+
+  const sentKey =
+    `global:${dateKey}:thursday-gif`;
+
+  if (await wasRoutineSent(sentKey)) {
+    return;
+  }
+
+  await channel.send(
+    'https://tenor.com/view/asuka-feliz-jueves-gif-7509624986630694154'
+  );
+
+  await markRoutineSent(sentKey);
+
+  console.log(
+    '✅ Thursday GIF sent.'
+  );
+}
 async function sendTimedRemindersIfNeeded(
   config,
   channel
@@ -1104,7 +1134,7 @@ console.log(
 
 let routineSchedulerStarted = false;
 let routineCheckRunning = false;
-
+  
 async function checkRoutineTasks() {
   if (!ROUTINE_REMINDERS_ENABLED) {
     return;
@@ -1119,12 +1149,20 @@ async function checkRoutineTasks() {
   try {
     const channel = await getRoutineChannel();
 
+    // Primero envía los dos resúmenes diarios.
     for (const config of ROUTINE_CONFIGS) {
       await sendDailySummaryIfNeeded(
         config,
         channel
       );
+    }
 
+    // Después de los resúmenes, envía el GIF
+    // solamente una vez los jueves.
+    await sendThursdayGifIfNeeded(channel);
+
+    // Finalmente revisa los recordatorios horarios.
+    for (const config of ROUTINE_CONFIGS) {
       await sendTimedRemindersIfNeeded(
         config,
         channel
