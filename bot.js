@@ -1079,12 +1079,12 @@ const formattedActivity =
 const reminderEmbed =
   new EmbedBuilder()
     .setColor(config.reminderColor)
+    .setTitle('Recordatorio')
     .setDescription(formattedActivity);
 
 await channel.send({
   content:
-    `${formattedActivity}\n` +
-    `<@${config.userId}>`,
+    `<@${config.userId}> | ${formattedActivity}`,
   embeds: [reminderEmbed]
 });
 
