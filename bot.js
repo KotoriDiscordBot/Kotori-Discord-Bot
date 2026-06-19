@@ -359,7 +359,19 @@ function getFormattedRoutineActivity(row) {
 
   return activity;
 }
+function getRoutineTriggerTime(row) {
+  const activity = String(row.activity || '').trim();
 
+  const embeddedTimeMatch = activity.match(
+    /^(\d{1,2}:\d{2})\s*[•|]\s*(.+)$/s
+  );
+
+  if (embeddedTimeMatch) {
+    return normalizeTime(embeddedTimeMatch[1]);
+  }
+
+  return normalizeTime(row.time);
+}
 function formatSpecialReminder(part) {
   const cleaned = String(part || '')
     .trim()
@@ -1090,14 +1102,17 @@ async function sendTimedRemindersIfNeeded(
   const rows = await readRoutineRows(config);
 
   const dueRows = rows.filter(row =>
-    row.type === 'horario' &&
-    row.time === currentTime
-  );
+  row.type === 'horario' &&
+  getRoutineTriggerTime(row) === currentTime
+);
 
   for (const row of dueRows) {
-    const sentKey =
-      `${config.key}:${dateKey}:reminder:` +
-      `${row.time}:${row.activity}`;
+  const triggerTime =
+  getRoutineTriggerTime(row);
+
+const sentKey =
+  `${config.key}:${dateKey}:reminder:` +
+  `${triggerTime}:${row.activity}`;
 
     if (await wasRoutineSent(sentKey)) {
       continue;
