@@ -841,7 +841,44 @@ async function readDailyNote(config) {
     return '';
   }
 }
+async function readAutoReminders(config) {
+  try {
+    const sheets = getSheetsClient();
 
+    const range =
+      config.key === 'laura'
+        ? "'Recordatorios'!E7:F11"
+        : "'Recordatorios'!B7:C11";
+
+    const response =
+      await sheets.spreadsheets.values.get({
+        spreadsheetId: GOOGLE_SHEET_ID,
+        range,
+        valueRenderOption: 'FORMATTED_VALUE'
+      });
+
+    const values = response.data.values || [];
+
+    return values
+      .map(row => ({
+        time: normalizeTime(row[0] || ''),
+        activity: String(row[1] || '').trim()
+      }))
+      .filter(
+        row =>
+          row.time &&
+          row.activity
+      );
+
+  } catch (error) {
+    console.error(
+      `❌ Could not read auto reminders for ${config.displayName}:`,
+      error
+    );
+
+    return [];
+  }
+}
 // ========================================
 // /ROUTINE DISPLAY
 // ========================================
@@ -1141,7 +1178,59 @@ console.log(
 );
   }
 }
+async function sendAutoRemindersIfNeeded(
+  config,
+  channel
+) {
+  const now = moment().tz(config.timezone);
 
+  const currentTime =
+    now.format('HH:mm');
+
+  const dateKey =
+    now.format('YYYY-MM-DD');
+
+  const reminders =
+    await readAutoReminders(config);
+
+  const dueReminders =
+    reminders.filter(
+      reminder =>
+        reminder.time === currentTime
+    );
+
+  for (const reminder of dueReminders) {
+
+    const sentKey =
+      `${config.key}:${dateKey}:auto:` +
+      `${reminder.time}:${reminder.activity}`;
+
+    if (await wasRoutineSent(sentKey)) {
+      continue;
+    }
+
+    const embed =
+      new EmbedBuilder()
+        .setColor(config.reminderColor)
+        .setTitle('Recordatorio')
+        .setDescription(
+          `${reminder.time} • ${reminder.activity}`
+        );
+
+    await channel.send({
+      content:
+        `<@${config.userId}> | ` +
+        `${reminder.activity}`,
+      embeds: [embed]
+    });
+
+    await markRoutineSent(sentKey);
+
+    console.log(
+      `✅ Auto reminder sent for ${config.displayName}: ${reminder.activity}`
+    );
+  }
+}
 
 // ========================================
 // ROUTINE SCHEDULER
@@ -1166,11 +1255,17 @@ async function checkRoutineTasks() {
 
     // Primero envía los dos resúmenes diarios.
     for (const config of ROUTINE_CONFIGS) {
-      await sendDailySummaryIfNeeded(
-        config,
-        channel
-      );
-    }
+
+  await sendTimedRemindersIfNeeded(
+    config,
+    channel
+  );
+
+  await sendAutoRemindersIfNeeded(
+    config,
+    channel
+  );
+}
 
     // Después de los resúmenes, envía el GIF
     // solamente una vez los jueves.
