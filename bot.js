@@ -845,6 +845,8 @@ async function readAutoReminders(config) {
   try {
     const sheets = getSheetsClient();
 
+    const startRow = 7;
+
     const range =
       config.key === 'laura'
         ? "'Recordatorios'!E7:F11"
@@ -860,7 +862,8 @@ async function readAutoReminders(config) {
     const values = response.data.values || [];
 
     return values
-      .map(row => ({
+      .map((row, index) => ({
+        rowNumber: startRow + index,
         time: normalizeTime(row[0] || ''),
         activity: String(row[1] || '').trim()
       }))
@@ -878,7 +881,32 @@ async function readAutoReminders(config) {
 
     return [];
   }
+ } 
+async function clearAutoReminder(
+  config,
+  rowNumber
+) {
+  try {
+    const sheets = getSheetsClient();
+
+    const range =
+      config.key === 'laura'
+        ? `'Recordatorios'!E${rowNumber}:F${rowNumber}`
+        : `'Recordatorios'!B${rowNumber}:C${rowNumber}`;
+
+    await sheets.spreadsheets.values.clear({
+      spreadsheetId: GOOGLE_SHEET_ID,
+      range
+    });
+
+  } catch (error) {
+    console.error(
+      `❌ Could not clear auto reminder for ${config.displayName}:`,
+      error
+    );
+  }
 }
+
 // ========================================
 // /ROUTINE DISPLAY
 // ========================================
@@ -1226,9 +1254,14 @@ async function sendAutoRemindersIfNeeded(
 
     await markRoutineSent(sentKey);
 
-    console.log(
-      `✅ Auto reminder sent for ${config.displayName}: ${reminder.activity}`
-    );
+await clearAutoReminder(
+  config,
+  reminder.rowNumber
+);
+
+console.log(
+  `✅ Auto reminder sent for ${config.displayName}: ${reminder.activity}`
+);
   }
 }
 
@@ -1254,7 +1287,19 @@ async function checkRoutineTasks() {
     const channel = await getRoutineChannel();
 
     // Primero envía los dos resúmenes diarios.
-    for (const config of ROUTINE_CONFIGS) {
+for (const config of ROUTINE_CONFIGS) {
+  await sendDailySummaryIfNeeded(
+    config,
+    channel
+  );
+}
+
+// Después de los resúmenes, envía el GIF
+// solamente una vez los jueves.
+await sendThursdayGifIfNeeded(channel);
+
+// Finalmente revisa los recordatorios.
+for (const config of ROUTINE_CONFIGS) {
 
   await sendTimedRemindersIfNeeded(
     config,
@@ -1266,18 +1311,6 @@ async function checkRoutineTasks() {
     channel
   );
 }
-
-    // Después de los resúmenes, envía el GIF
-    // solamente una vez los jueves.
-    await sendThursdayGifIfNeeded(channel);
-
-    // Finalmente revisa los recordatorios horarios.
-    for (const config of ROUTINE_CONFIGS) {
-      await sendTimedRemindersIfNeeded(
-        config,
-        channel
-      );
-    }
   } catch (error) {
     console.error(
       '❌ Routine check failed:',
