@@ -1768,9 +1768,25 @@ async function startBot() {
       '🔄 Logging into Discord...'
     );
 
-    await client.login(
-      process.env.DISCORD_TOKEN
-    );
+    console.log(
+  'Token presente:',
+  Boolean(process.env.DISCORD_TOKEN)
+);
+
+try {
+  await client.login(
+    process.env.DISCORD_TOKEN
+  );
+
+  console.log(
+    '✅ Login request accepted'
+  );
+} catch (error) {
+  console.error(
+    '❌ Discord login failed:',
+    error
+  );
+}
   } catch (error) {
     console.error(
       '❌ Failed during startup:',
