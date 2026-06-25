@@ -1162,9 +1162,20 @@ async function sendTimedRemindersIfNeeded(
 ) {
   const now = moment().tz(config.timezone);
   const currentTime = now.format('HH:mm');
+  
+  console.log(
+  `[${config.displayName}] Hora actual: ${currentTime}`
+);
+  
   const dateKey = now.format('YYYY-MM-DD');
 
   const rows = await readRoutineRows(config);
+  
+  for (const row of rows) {
+  console.log(
+    `[${config.displayName}] Actividad "${row.activity}" -> ${getRoutineTriggerTime(row)}`
+  );
+}
 
   const dueRows = rows.filter(row =>
   row.type === 'horario' &&
@@ -1172,6 +1183,9 @@ async function sendTimedRemindersIfNeeded(
 );
 
   for (const row of dueRows) {
+    console.log(
+  `[${config.displayName}] Coincidencia encontrada: ${row.activity}`
+);
   const triggerTime =
   getRoutineTriggerTime(row);
 
@@ -1280,7 +1294,13 @@ async function checkRoutineTasks() {
   if (routineCheckRunning) {
     return;
   }
-
+console.log(
+  `🕒 checkRoutineTasks ejecutado: ${
+    moment()
+      .tz('America/Argentina/Cordoba')
+      .format('YYYY-MM-DD HH:mm:ss')
+  }`
+);
   routineCheckRunning = true;
 
   try {
