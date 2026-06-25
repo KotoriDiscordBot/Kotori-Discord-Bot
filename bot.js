@@ -1790,12 +1790,7 @@ console.log(
   console.log(
     '✅ Login request accepted'
   );
-} catch (error) {
-  console.error(
-    '❌ Discord login failed:',
-    error
-  );
-}
+
   } catch (error) {
     console.error(
       '❌ Failed during startup:',
