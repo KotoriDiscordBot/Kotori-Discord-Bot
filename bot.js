@@ -199,7 +199,9 @@ process.on('SIGTERM', async () => {
 const client = new Client({
   intents: [GatewayIntentBits.Guilds]
 });
-
+client.on('ready', () => {
+  console.log('READY EVENT DISPARADO');
+});
 
 // ========================================
 // DISCORD DEBUGGING
@@ -1773,10 +1775,17 @@ async function startBot() {
   Boolean(process.env.DISCORD_TOKEN)
 );
 
-try {
+console.log('Intentando login...');
+
+const loginResult =
   await client.login(
     process.env.DISCORD_TOKEN
   );
+
+console.log(
+  'Resultado login:',
+  loginResult
+);
 
   console.log(
     '✅ Login request accepted'
