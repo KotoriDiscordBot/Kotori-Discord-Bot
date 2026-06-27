@@ -788,29 +788,40 @@ async function readRoutineRows(config) {
 
   const values = response.data.values || [];
 
-  return values
-    .map(row => {
-      const date = row[0] || '';
-      const time = normalizeTime(row[1] || '');
-      const activity = row[2] || '';
-      const type = String(row[3] || '')
-        .trim()
-        .toLowerCase();
+  const routineRows = [];
 
-      const send = row[4];
+  for (const row of values) {
+    const date = row[0] || '';
+    const time = normalizeTime(row[1] || '');
+    const type = String(row[3] || '')
+      .trim()
+      .toLowerCase();
 
-      return {
+    const sendEnabled = isSendEnabled(row[4]);
+
+    if (!sendEnabled) {
+      continue;
+    }
+
+    const activityLines = String(row[2] || '')
+      .split(/\r?\n/)
+      .map(line => line.trim())
+      .filter(Boolean);
+
+    for (const activity of activityLines) {
+      routineRows.push({
         date,
         time,
-        activity: String(activity).trim(),
+        activity,
         type,
-        sendEnabled: isSendEnabled(send)
-      };
-    })
-    .filter(row =>
-      row.activity &&
-      row.sendEnabled
-    );
+        sendEnabled: true
+      });
+    }
+  }
+
+  return routineRows.filter(
+    row => row.activity
+  );
 }
 async function readDailyNote(config) {
   try {
