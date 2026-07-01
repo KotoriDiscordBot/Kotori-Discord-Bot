@@ -1433,7 +1433,8 @@ await sendPatyRemindersIfNeeded(
   );
 } finally {
   routineCheckRunning = false;
-}
+ }
+}  
 
 function startRoutineScheduler() {
   if (routineSchedulerStarted) {
