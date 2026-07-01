@@ -919,7 +919,30 @@ async function clearAutoReminder(
     );
   }
 }
+async function readPatyReminders() {
+  const sheets = getSheetsClient();
 
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: GOOGLE_SHEET_ID,
+    range: "'Paty Viena'!B3:E",
+    valueRenderOption: 'FORMATTED_VALUE'
+  });
+
+  const values = response.data.values || [];
+
+  return values
+    .map(row => ({
+      time: normalizeTime(row[0] || ''),
+      activity: String(row[1] || '').trim(),
+      date: String(row[3] || '').trim()
+    }))
+    .filter(
+      row =>
+        row.time &&
+        row.activity &&
+        row.date
+    );
+}
 // ========================================
 // /ROUTINE DISPLAY
 // ========================================
@@ -1291,7 +1314,61 @@ console.log(
 );
   }
 }
+async function sendPatyRemindersIfNeeded(
+  channel
+) {
+  const now = moment().tz(
+    'America/Argentina/Cordoba'
+  );
 
+  const currentTime =
+    now.format('HH:mm');
+
+  const currentDate =
+    now.format('DD/MM');
+
+  const reminders =
+    await readPatyReminders();
+
+  const dueReminders =
+    reminders.filter(
+      reminder =>
+        reminder.time === currentTime &&
+        reminder.date === currentDate
+    );
+
+  for (const reminder of dueReminders) {
+
+    const sentKey =
+      `paty:${now.format('YYYY-MM-DD')}:` +
+      `${reminder.time}:${reminder.activity}`;
+
+    if (await wasRoutineSent(sentKey)) {
+      continue;
+    }
+
+    const embed =
+      new EmbedBuilder()
+        .setColor(0xcc2a80)
+        .setTitle('Agitar las gotas')
+        .setDescription(
+          `${reminder.time} • ${reminder.activity}`
+        );
+
+    await channel.send({
+      content:
+        `<@${LAURA_USER_ID}> | ` +
+        `${reminder.time} • ${reminder.activity}`,
+      embeds: [embed]
+    });
+
+    await markRoutineSent(sentKey);
+
+    console.log(
+      `💊 Paty: ${reminder.time} - ${reminder.activity}`
+    );
+  }
+}
 // ========================================
 // ROUTINE SCHEDULER
 // ========================================
@@ -1344,14 +1421,18 @@ for (const config of ROUTINE_CONFIGS) {
     channel
   );
 }
-  } catch (error) {
-    console.error(
-      '❌ Routine check failed:',
-      error
-    );
-  } finally {
-    routineCheckRunning = false;
-  }
+
+await sendPatyRemindersIfNeeded(
+  channel
+);
+
+} catch (error) {
+  console.error(
+    '❌ Routine check failed:',
+    error
+  );
+} finally {
+  routineCheckRunning = false;
 }
 
 function startRoutineScheduler() {
