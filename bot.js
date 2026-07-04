@@ -1228,10 +1228,15 @@ async function sendTimedRemindersIfNeeded(
 const sentKey =
   `${config.key}:${dateKey}:reminder:` +
   `${triggerTime}:${row.activity}`;
+    
+console.log("1️⃣ Antes wasRoutineSent");
 
-    if (await wasRoutineSent(sentKey)) {
-      continue;
-    }
+if (await wasRoutineSent(sentKey)) {
+  console.log("1️⃣ Ya estaba enviado");
+  continue;
+}
+
+console.log("2️⃣ Después wasRoutineSent");
 
 const formattedActivity =
   getFormattedRoutineActivity(row);
@@ -1242,13 +1247,29 @@ const reminderEmbed =
     .setTitle('Recordatorio')
     .setDescription(formattedActivity);
 
+console.log(
+  `3️⃣ Antes channel.send (${config.displayName}: ${formattedActivity})`
+);
+    
 await channel.send({
   content:
     `<@${config.userId}> | ${formattedActivity}`,
   embeds: [reminderEmbed]
 });
 
+console.log(
+  `4️⃣ Después channel.send (${config.displayName}: ${formattedActivity})`
+);    
+
+console.log(
+  `5️⃣ Antes markRoutineSent (${config.displayName}: ${formattedActivity})`
+);
+
 await markRoutineSent(sentKey);
+
+console.log(
+  `6️⃣ Después markRoutineSent (${config.displayName}: ${formattedActivity})`
+);
 
 console.log(
   `✅ Reminder sent for ${config.displayName}: ` +
@@ -1340,12 +1361,23 @@ async function sendPatyRemindersIfNeeded(
   for (const reminder of dueReminders) {
 
     const sentKey =
-      `paty:${now.format('YYYY-MM-DD')}:` +
-      `${reminder.time}:${reminder.activity}`;
+  `paty:${now.format('YYYY-MM-DD')}:` +
+  `${reminder.time}:${reminder.activity}`;
 
-    if (await wasRoutineSent(sentKey)) {
-      continue;
-    }
+console.log(
+  `🩷 1️⃣ Antes wasRoutineSent (${reminder.time} - ${reminder.activity})`
+);
+
+if (await wasRoutineSent(sentKey)) {
+  console.log(
+    `🩷 1️⃣ Ya estaba enviado (${reminder.time} - ${reminder.activity})`
+  );
+  continue;
+}
+
+     console.log(
+  `🩷 2️⃣ Después wasRoutineSent (${reminder.time} - ${reminder.activity})`
+);
 
     const embed =
       new EmbedBuilder()
@@ -1355,6 +1387,10 @@ async function sendPatyRemindersIfNeeded(
           `${reminder.time} • ${reminder.activity}`
         );
 
+console.log(
+  `🩷 3️⃣ Antes channel.send (${reminder.time} - ${reminder.activity})`
+);
+    
     await channel.send({
       content:
         `<@${LAURA_USER_ID}> | ` +
@@ -1362,7 +1398,18 @@ async function sendPatyRemindersIfNeeded(
       embeds: [embed]
     });
 
+    console.log(
+  `🩷 4️⃣ Después channel.send (${reminder.time} - ${reminder.activity})`
+);
+    console.log(
+  `🩷 5️⃣ Antes markRoutineSent (${reminder.time} - ${reminder.activity})`
+);
+
     await markRoutineSent(sentKey);
+
+    console.log(
+  `🩷 6️⃣ Después markRoutineSent (${reminder.time} - ${reminder.activity})`
+);
 
     console.log(
       `💊 Paty: ${reminder.time} - ${reminder.activity}`
@@ -1392,6 +1439,8 @@ console.log(
   }`
 );
   routineCheckRunning = true;
+  
+  const started = Date.now();
 
   try {
     const channel = await getRoutineChannel();
@@ -1432,8 +1481,13 @@ await sendPatyRemindersIfNeeded(
     error
   );
 } finally {
+
+  console.log(
+    `⏱️ checkRoutineTasks tardó ${Date.now() - started} ms`
+  );
+
   routineCheckRunning = false;
- }
+}
 }  
 
 function startRoutineScheduler() {
