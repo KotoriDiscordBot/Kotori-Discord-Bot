@@ -63,6 +63,8 @@ function logError(checkId, scope, message, error) {
 }
 
 const withTimeout = (promise, ms) => {
+  if (!ms || ms <= 0) return promise; 
+
   let timeoutId;
   const timeoutPromise = new Promise((_, reject) => {
     timeoutId = setTimeout(() => {
