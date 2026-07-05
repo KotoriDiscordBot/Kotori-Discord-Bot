@@ -451,7 +451,11 @@ async function wasRoutineSent(key) {
 
 async function markRoutineSent(key) {
   if (!routineSentCollection) return;
-  await routineSentCollection.updateOne({ key }, { $setOnInsert: { key, sentAt: new Date() } }, { upsert: true });
+  await routineSentCollection.updateOne(
+    { key }, 
+    { $setOnInsert: { key, sentAt: new Date(), createdAt: new Date() } }, 
+    { upsert: true }
+  );
 }
 
 // ========================================
