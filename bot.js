@@ -2844,3 +2844,1624 @@ async function checkRoutineTasks() {
       );
 
     }
+
+      tasks.push(
+
+      (async () => {
+
+        try {
+
+          await sendPatyRemindersIfNeeded(
+            checkId,
+            channel
+          );
+
+        }
+
+        catch (error) {
+
+          logError(
+            checkId,
+            'Paty',
+            'Paty reminders failed',
+            error
+          );
+
+        }
+
+      })()
+
+    );
+
+    tasks.push(
+
+      (async () => {
+
+        try {
+
+          await sendThursdayGifIfNeeded(
+            checkId,
+            channel
+          );
+
+        }
+
+        catch (error) {
+
+          logError(
+            checkId,
+            'Thursday GIF',
+            'GIF sender failed',
+            error
+          );
+
+        }
+
+      })()
+
+    );
+
+    for (const config of ROUTINE_CONFIGS) {
+
+      tasks.push(
+
+        (async () => {
+
+          try {
+
+            await sendTimedRemindersIfNeeded(
+              checkId,
+              config,
+              channel
+            );
+
+          }
+
+          catch (error) {
+
+            logError(
+              checkId,
+              config.displayName,
+              'Timed reminders failed',
+              error
+            );
+
+          }
+
+        })()
+
+      );
+
+      tasks.push(
+
+        (async () => {
+
+          try {
+
+            await sendAutoRemindersIfNeeded(
+              checkId,
+              config,
+              channel
+            );
+
+          }
+
+          catch (error) {
+
+            logError(
+              checkId,
+              config.displayName,
+              'Auto reminders failed',
+              error
+            );
+
+          }
+
+        })()
+
+      );
+
+    }
+
+    log(
+      checkId,
+      'SYSTEM',
+      `Launching ${tasks.length} async task(s).`
+    );
+
+    await Promise.allSettled(
+      tasks
+    );
+
+    log(
+      checkId,
+      'SYSTEM',
+      'All routine tasks finished.'
+    );
+
+  }
+
+  catch (error) {
+
+    logError(
+      checkId,
+      'SYSTEM',
+      'Routine check failed',
+      error
+    );
+
+  }
+
+  finally {
+
+    log(
+      checkId,
+      'SYSTEM',
+      `Routine check completed (${Date.now() - started} ms)`
+    );
+
+    routineCheckRunning = false;
+
+  }
+
+}
+
+    tasks.push(
+
+      (async () => {
+
+        try {
+
+          await sendPatyRemindersIfNeeded(
+            checkId,
+            channel
+          );
+
+        }
+
+        catch (error) {
+
+          logError(
+            checkId,
+            'Paty',
+            'Paty reminders failed',
+            error
+          );
+
+        }
+
+      })()
+
+    );
+
+    tasks.push(
+
+      (async () => {
+
+        try {
+
+          await sendThursdayGifIfNeeded(
+            checkId,
+            channel
+          );
+
+        }
+
+        catch (error) {
+
+          logError(
+            checkId,
+            'Thursday GIF',
+            'GIF sender failed',
+            error
+          );
+
+        }
+
+      })()
+
+    );
+
+    for (const config of ROUTINE_CONFIGS) {
+
+      tasks.push(
+
+        (async () => {
+
+          try {
+
+            await sendTimedRemindersIfNeeded(
+              checkId,
+              config,
+              channel
+            );
+
+          }
+
+          catch (error) {
+
+            logError(
+              checkId,
+              config.displayName,
+              'Timed reminders failed',
+              error
+            );
+
+          }
+
+        })()
+
+      );
+
+      tasks.push(
+
+        (async () => {
+
+          try {
+
+            await sendAutoRemindersIfNeeded(
+              checkId,
+              config,
+              channel
+            );
+
+          }
+
+          catch (error) {
+
+            logError(
+              checkId,
+              config.displayName,
+              'Auto reminders failed',
+              error
+            );
+
+          }
+
+        })()
+
+      );
+
+    }
+
+    log(
+      checkId,
+      'SYSTEM',
+      `Launching ${tasks.length} async task(s).`
+    );
+
+    await Promise.allSettled(
+      tasks
+    );
+
+    log(
+      checkId,
+      'SYSTEM',
+      'All routine tasks finished.'
+    );
+
+  }
+
+  catch (error) {
+
+    logError(
+      checkId,
+      'SYSTEM',
+      'Routine check failed',
+      error
+    );
+
+  }
+
+  finally {
+
+    log(
+      checkId,
+      'SYSTEM',
+      `Routine check completed (${Date.now() - started} ms)`
+    );
+
+    routineCheckRunning = false;
+
+  }
+
+}
+
+function startRoutineScheduler() {
+
+  if (routineSchedulerStarted) {
+
+    console.log(
+      '🕒 Routine scheduler already started.'
+    );
+
+    return;
+
+  }
+
+  routineSchedulerStarted = true;
+
+  if (!ROUTINE_REMINDERS_ENABLED) {
+
+    console.log(
+      '🕒 Routine reminders disabled by environment variable.'
+    );
+
+    return;
+
+  }
+
+  console.log('');
+  console.log('═══════════════════════════════');
+  console.log(' ROUTINE SCHEDULER');
+  console.log('═══════════════════════════════');
+
+  console.log(
+    `✔ Enabled : ${ROUTINE_REMINDERS_ENABLED}`
+  );
+
+  console.log(
+    '✔ Interval: 60 seconds'
+  );
+
+  console.log(
+    '✔ First execution in 5 seconds'
+  );
+
+  console.log('═══════════════════════════════');
+  console.log('');
+
+  setTimeout(
+
+    async () => {
+
+      try {
+
+        await checkRoutineTasks();
+
+      }
+
+      catch (error) {
+
+        console.error(
+          '❌ Initial routine execution failed:',
+          error
+        );
+
+      }
+
+    },
+
+    5000
+
+  );
+
+  setInterval(
+
+    async () => {
+
+      try {
+
+        await checkRoutineTasks();
+
+      }
+
+      catch (error) {
+
+        console.error(
+          '❌ Scheduled routine execution failed:',
+          error
+        );
+
+      }
+
+    },
+
+    60 * 1000
+
+  );
+
+}
+
+// ========================================
+// READY EVENT
+// ========================================
+
+client.once(
+  'ready',
+  async () => {
+
+    console.log('');
+    console.log('═══════════════════════════════');
+    console.log(' BOT READY');
+    console.log('═══════════════════════════════');
+
+    console.log(
+      `✅ Logged in as ${client.user.tag}`
+    );
+
+    try {
+
+      const startup =
+        Date.now();
+
+      const rest =
+        new REST({
+          version: '10'
+        }).setToken(
+          process.env.DISCORD_TOKEN
+        );
+
+      await measureStep(
+
+        0,
+
+        'STARTUP',
+
+        'Register Slash Commands',
+
+        () =>
+          rest.put(
+
+            Routes.applicationCommands(
+              client.user.id
+            ),
+
+            {
+              body:
+                commands
+            }
+
+          )
+
+      );
+
+      console.log(
+        '✅ Slash commands registered.'
+      );
+
+      await measureStep(
+
+        0,
+
+        'STARTUP',
+
+        'Start Weather Scheduler',
+
+        async () => {
+
+          startWeatherScheduler();
+
+        }
+
+      );
+
+      await measureStep(
+
+        0,
+
+        'STARTUP',
+
+        'Start Routine Scheduler',
+
+        async () => {
+
+          startRoutineScheduler();
+
+        }
+
+      );
+
+      console.log('');
+
+      console.log(
+        `✅ Startup completed in ${Date.now() - startup} ms`
+      );
+
+      console.log('═══════════════════════════════');
+      console.log('');
+
+    }
+
+    catch (error) {
+
+      console.error(
+        '❌ Failed during ready event:',
+        error
+      );
+
+    }
+
+  }
+);
+
+// ========================================
+// INTERACTIONS
+// ========================================
+
+client.on(
+  'interactionCreate',
+  async interaction => {
+
+    const started =
+      Date.now();
+
+    const scope =
+      'Interaction';
+
+    try {
+
+      if (!interaction.isChatInputCommand()) {
+        return;
+      }
+
+      log(
+
+        0,
+
+        scope,
+
+        `${interaction.user.tag} ejecutó /${interaction.commandName}`
+
+      );
+
+      await measureStep(
+
+        0,
+
+        scope,
+
+        'Defer reply',
+
+        () =>
+          interaction.deferReply()
+
+      );
+
+      const userId =
+        interaction.user.id;
+
+      const restrictedCommands = [
+
+        'routine',
+
+        'weather'
+
+      ];
+
+      if (
+
+        restrictedCommands.includes(
+          interaction.commandName
+        ) &&
+
+        !AUTHORIZED_USERS.has(userId)
+
+      ) {
+
+        log(
+
+          0,
+
+          scope,
+
+          `Unauthorized command: ${interaction.commandName}`
+
+        );
+
+        return interaction.editReply({
+
+          content:
+            'Este comando no está disponible.'
+
+        });
+
+      }
+
+      // ==================================
+      // /ADD
+      // ==================================
+
+      if (
+        interaction.commandName ===
+        'add'
+      ) {
+
+        const link =
+          interaction.options.getString(
+            'link'
+          );
+
+        log(
+
+          0,
+
+          '/add',
+
+          `Saving link for ${interaction.user.tag}`
+
+        );
+
+        const existingUser =
+          await measureStep(
+
+            0,
+
+            '/add',
+
+            'Read MongoDB',
+
+            () =>
+              linksCollection.findOne({
+
+                userId
+
+              })
+
+          );
+
+        if (
+
+          existingUser &&
+
+          Array.isArray(
+            existingUser.links
+          ) &&
+
+          existingUser.links.includes(
+            link
+          )
+
+        ) {
+
+          return interaction.editReply({
+
+            content:
+              'You already saved this link.'
+
+          });
+
+        }
+
+        await measureStep(
+
+          0,
+
+          '/add',
+
+          'Insert MongoDB',
+
+          () =>
+
+            linksCollection.updateOne(
+
+              {
+
+                userId
+
+              },
+
+              {
+
+                $push: {
+
+                  links:
+                    link
+
+                }
+
+              },
+
+              {
+
+                upsert: true
+
+              }
+
+            )
+
+        );
+
+        const updatedUser =
+          await measureStep(
+
+            0,
+
+            '/add',
+
+            'Reload MongoDB',
+
+            () =>
+              linksCollection.findOne({
+
+                userId
+
+              })
+
+          );
+
+        const linksCount =
+
+          updatedUser &&
+          Array.isArray(
+            updatedUser.links
+          )
+
+            ? updatedUser.links.length
+
+            : 0;
+
+        await measureStep(
+
+          0,
+
+          '/add',
+
+          'Reply',
+
+          () =>
+
+            interaction.editReply({
+
+              content:
+                `Link saved successfully\nLinks saved: ${linksCount}`
+
+            })
+
+        );
+
+        log(
+
+          0,
+
+          '/add',
+
+          `Finished (${Date.now() - started} ms)`
+
+        );
+
+        return;
+
+      }
+
+          // ==================================
+      // /GET
+      // ==================================
+
+      if (
+        interaction.commandName ===
+        'get'
+      ) {
+
+        log(
+
+          0,
+
+          '/get',
+
+          `Loading links for ${interaction.user.tag}`
+
+        );
+
+        const userData =
+          await measureStep(
+
+            0,
+
+            '/get',
+
+            'Read MongoDB',
+
+            () =>
+              linksCollection.findOne({
+
+                userId
+
+              })
+
+          );
+
+        if (
+
+          !userData ||
+
+          !Array.isArray(
+            userData.links
+          ) ||
+
+          userData.links.length === 0
+
+        ) {
+
+          await interaction.editReply({
+
+            content:
+              'You have no links saved'
+
+          });
+
+          return;
+
+        }
+
+        const randomIndex =
+          Math.floor(
+
+            Math.random() *
+            userData.links.length
+
+          );
+
+        const selectedLink =
+          userData.links[
+            randomIndex
+          ];
+
+        userData.links.splice(
+
+          randomIndex,
+
+          1
+
+        );
+
+        await measureStep(
+
+          0,
+
+          '/get',
+
+          'Update MongoDB',
+
+          () =>
+
+            linksCollection.updateOne(
+
+              {
+
+                userId
+
+              },
+
+              {
+
+                $set: {
+
+                  links:
+                    userData.links
+
+                }
+
+              }
+
+            )
+
+        );
+
+        let message =
+
+          `Here's one of your saved links:\n\n` +
+
+          `${selectedLink}\n\n`;
+
+        if (
+          userData.links.length === 0
+        ) {
+
+          message +=
+            '(This was your last saved link)';
+
+        }
+
+        else {
+
+          message +=
+            `Links remaining: ${userData.links.length}`;
+
+        }
+
+        const isValidUrl =
+
+          typeof selectedLink ===
+            'string' &&
+
+          (
+
+            selectedLink.startsWith(
+              'http://'
+            ) ||
+
+            selectedLink.startsWith(
+              'https://'
+            )
+
+          );
+
+        if (isValidUrl) {
+
+          const row =
+            new ActionRowBuilder()
+
+              .addComponents(
+
+                new ButtonBuilder()
+
+                  .setLabel(
+                    'Open link'
+                  )
+
+                  .setStyle(
+                    ButtonStyle.Link
+                  )
+
+                  .setURL(
+                    selectedLink
+                  )
+
+              );
+
+          await measureStep(
+
+            0,
+
+            '/get',
+
+            'Reply',
+
+            () =>
+
+              interaction.editReply({
+
+                content:
+                  message,
+
+                components: [
+                  row
+                ]
+
+              })
+
+          );
+
+        }
+
+        else {
+
+          await measureStep(
+
+            0,
+
+            '/get',
+
+            'Reply',
+
+            () =>
+
+              interaction.editReply({
+
+                content:
+                  message
+
+              })
+
+          );
+
+        }
+
+        log(
+
+          0,
+
+          '/get',
+
+          `Finished (${Date.now() - started} ms)`
+
+        );
+
+        return;
+
+      }
+
+          // ==================================
+      // /COUNT
+      // ==================================
+
+      if (
+        interaction.commandName ===
+        'count'
+      ) {
+
+        log(
+
+          0,
+
+          '/count',
+
+          `Counting links for ${interaction.user.tag}`
+
+        );
+
+        const userData =
+          await measureStep(
+
+            0,
+
+            '/count',
+
+            'Read MongoDB',
+
+            () =>
+              linksCollection.findOne({
+
+                userId
+
+              })
+
+          );
+
+        const count =
+
+          userData &&
+          Array.isArray(
+            userData.links
+          )
+
+            ? userData.links.length
+
+            : 0;
+
+        await measureStep(
+
+          0,
+
+          '/count',
+
+          'Reply',
+
+          () =>
+
+            interaction.editReply({
+
+              content:
+                `You have ${count} links saved.`
+
+            })
+
+        );
+
+        log(
+
+          0,
+
+          '/count',
+
+          `Finished (${Date.now() - started} ms)`
+
+        );
+
+        return;
+
+      }
+
+
+      // ==================================
+      // /WEATHER
+      // ==================================
+
+      if (
+        interaction.commandName ===
+        'weather'
+      ) {
+
+        log(
+
+          0,
+
+          '/weather',
+
+          `Manual weather update requested by ${interaction.user.tag}`
+
+        );
+
+        const result =
+          await measureStep(
+
+            0,
+
+            '/weather',
+
+            'Update weather',
+
+            () =>
+              updateWeatherInSheet(
+                'slash command'
+              )
+
+          );
+
+        if (
+          result.skipped
+        ) {
+
+          await interaction.editReply({
+
+            content:
+              'La actualización del clima se omitió porque ya hay otra actualización en curso.'
+
+          });
+
+          return;
+
+        }
+
+        const lines = [
+
+          '**Clima actualizado**',
+
+          '',
+
+          result.cordoba.ok
+
+            ? `✅ ${result.cordoba.text}`
+
+            : `⚠️ ${result.cordoba.error}`,
+
+          result.guatemala.ok
+
+            ? `✅ ${result.guatemala.text}`
+
+            : `⚠️ ${result.guatemala.error}`
+
+        ];
+
+        await measureStep(
+
+          0,
+
+          '/weather',
+
+          'Reply',
+
+          () =>
+
+            interaction.editReply({
+
+              content:
+                trimDiscordMessage(
+                  lines.join('\n')
+                )
+
+            })
+
+        );
+
+        log(
+
+          0,
+
+          '/weather',
+
+          `Finished (${Date.now() - started} ms)`
+
+        );
+
+        return;
+
+      }
+
+          // ==================================
+      // /ROUTINE
+      // ==================================
+
+      if (
+        interaction.commandName ===
+        'routine'
+      ) {
+
+        log(
+
+          0,
+
+          '/routine',
+
+          `Manual routine requested by ${interaction.user.tag}`
+
+        );
+
+        const sections = [];
+
+        await measureStep(
+
+          0,
+
+          '/routine',
+
+          'Read routines',
+
+          async () => {
+
+            for (
+              const config of ROUTINE_CONFIGS
+            ) {
+
+              const rows =
+                await readRoutineRows(
+                  config
+                );
+
+              sections.push(
+
+                buildRoutineDisplay(
+
+                  config,
+
+                  rows
+
+                )
+
+              );
+
+            }
+
+          }
+
+        );
+
+        await measureStep(
+
+          0,
+
+          '/routine',
+
+          'Reply',
+
+          () =>
+
+            interaction.editReply({
+
+              content:
+
+                buildManualRoutineMessage(
+                  sections
+                )
+
+            })
+
+        );
+
+        log(
+
+          0,
+
+          '/routine',
+
+          `Finished (${Date.now() - started} ms)`
+
+        );
+
+        return;
+
+      }
+
+    }
+
+    catch (error) {
+
+      logError(
+
+        0,
+
+        'Interaction',
+
+        `Command failed: ${interaction.commandName}`,
+
+        error
+
+      );
+
+      try {
+
+        if (
+
+          interaction.deferred ||
+
+          interaction.replied
+
+        ) {
+
+          await interaction.editReply({
+
+            content:
+              'Something went wrong while processing your request.\n\nCheck the Render logs for the full error.'
+
+          });
+
+        }
+
+        else {
+
+          await interaction.reply({
+
+            content:
+              'Something went wrong while processing your request.\n\nCheck the Render logs for the full error.',
+
+            ephemeral: true
+
+          });
+
+        }
+
+      }
+
+      catch (replyError) {
+
+        logError(
+
+          0,
+
+          'Interaction',
+
+          'Failed to send error reply',
+
+          replyError
+
+        );
+
+      }
+
+    }
+
+  }
+
+);
+
+// ========================================
+// CLIENT ERRORS
+// ========================================
+
+client.on(
+  'error',
+  error => {
+
+    console.error(
+      '❌ Discord client error:',
+      error
+    );
+
+  }
+);
+
+client.on(
+  'warn',
+  warning => {
+
+    console.warn(
+      '⚠️ Discord warning:',
+      warning
+    );
+
+  }
+);
+
+
+// ========================================
+// STARTUP
+// ========================================
+
+async function startBot() {
+
+  const startupId =
+    createRoutineCheckId();
+
+  log(
+    startupId,
+    'STARTUP',
+    'Starting bot...'
+  );
+
+  try {
+
+    await measureStep(
+
+      startupId,
+
+      'MongoDB',
+
+      'Connect',
+
+      () =>
+        mongoClient.connect()
+
+    );
+
+    log(
+      startupId,
+      'MongoDB',
+      'Connected'
+    );
+
+    const database =
+      mongoClient.db(
+        'linkbot'
+      );
+
+    linksCollection =
+      database.collection(
+        'links'
+      );
+
+    routineSentCollection =
+      database.collection(
+        'routineSent'
+      );
+
+    log(
+      startupId,
+      'MongoDB',
+      'Collections loaded'
+    );
+
+    log(
+      startupId,
+      'Discord',
+      `Token present: ${Boolean(process.env.DISCORD_TOKEN)}`
+    );
+
+    await measureStep(
+
+      startupId,
+
+      'Discord',
+
+      'Login',
+
+      async () => {
+
+        const loginResult =
+          await client.login(
+            process.env.DISCORD_TOKEN
+          );
+
+        log(
+          startupId,
+          'Discord',
+          `Login result: ${loginResult}`
+        );
+
+      }
+
+    );
+
+    log(
+      startupId,
+      'STARTUP',
+      'Startup completed'
+    );
+
+  }
+
+  catch (error) {
+
+    logError(
+
+      startupId,
+
+      'STARTUP',
+
+      'Startup failed',
+
+      error
+
+    );
+
+    console.log(
+      '🔄 Retrying startup in 10 seconds...'
+    );
+
+    setTimeout(
+
+      startBot,
+
+      10000
+
+    );
+
+  }
+
+}
+
+
+// ========================================
+// READY EVENT
+// ========================================
+
+client.once(
+  'ready',
+  async () => {
+
+    const readyId =
+      createRoutineCheckId();
+
+    log(
+      readyId,
+      'READY',
+      `Logged in as ${client.user.tag}`
+    );
+
+    try {
+
+      const rest =
+        new REST({
+          version: '10'
+        }).setToken(
+          process.env.DISCORD_TOKEN
+        );
+
+      await measureStep(
+
+        readyId,
+
+        'SlashCommands',
+
+        'Register',
+
+        () =>
+
+          rest.put(
+
+            Routes.applicationCommands(
+              client.user.id
+            ),
+
+            {
+              body: commands
+            }
+
+          )
+
+      );
+
+      log(
+        readyId,
+        'SlashCommands',
+        'Registered'
+      );
+
+      startWeatherScheduler();
+
+      startRoutineScheduler();
+
+      log(
+        readyId,
+        'READY',
+        'Schedulers started'
+      );
+
+    }
+
+    catch (error) {
+
+      logError(
+
+        readyId,
+
+        'READY',
+
+        'Initialization failed',
+
+        error
+
+      );
+
+    }
+
+  }
+
+);
+
+
+// ========================================
+// START
+// ========================================
+
+startBot();
