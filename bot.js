@@ -482,7 +482,7 @@ async function sendDailySummaryIfNeeded(checkId, config, channel) {
 
     await measureStep(checkId, scope, 'Discord send', () => channel.send({ content: `Feliz ${getSpanishWeekday(now)} <@${config.userId}> ${config.heart}`, embeds: [embed] }));
   } catch (error) {
-    await routineSentCollection.deleteOne({ key: sentKey });
+    // Ya no borramos el registro si falla. Se evita el reintento infinito.
     throw error;
   }
 }
@@ -509,7 +509,7 @@ async function sendTimedRemindersIfNeeded(checkId, config, channel) {
       const embed = new EmbedBuilder().setColor(config.reminderColor).setTitle('Recordatorio').setDescription(formattedActivity);
       await measureStep(checkId, `${scope} (${triggerTime})`, 'Discord send', () => channel.send({ content: `<@${config.userId}> | ${formattedActivity}`, embeds: [embed] }));
     } catch (error) {
-      await routineSentCollection.deleteOne({ key: sentKey });
+      // Ya no borramos el registro si falla. Se evita el reintento infinito.
       throw error;
     }
   }
@@ -533,7 +533,7 @@ async function sendAutoRemindersIfNeeded(checkId, config, channel) {
       await measureStep(checkId, `${scope} (${reminder.time})`, 'Discord send', () => channel.send({ content: `<@${config.userId}> | ${reminder.activity}`, embeds: [embed] }));
       await measureStep(checkId, `${scope} (${reminder.time})`, 'Clear reminder', () => clearAutoReminder(config, reminder.rowNumber));
     } catch (error) {
-      await routineSentCollection.deleteOne({ key: sentKey });
+      // Ya no borramos el registro si falla. Se evita el reintento infinito.
       throw error;
     }
   }
@@ -557,7 +557,7 @@ async function sendPatyRemindersIfNeeded(checkId, channel) {
       const embed = new EmbedBuilder().setColor(0xcc2a80).setTitle('Agitar las gotas').setDescription(`${reminder.time} • ${reminder.activity}`);
       await measureStep(checkId, `Paty ${reminder.time}`, 'Discord send', () => channel.send({ content: `<@${LAURA_USER_ID}> | ${reminder.time} • ${reminder.activity}`, embeds: [embed] }));
     } catch (error) {
-      await routineSentCollection.deleteOne({ key: sentKey });
+      // Ya no borramos el registro si falla. Se evita el reintento infinito.
       throw error;
     }
   }
@@ -576,7 +576,7 @@ async function sendThursdayGifIfNeeded(checkId, channel) {
   try {
     await measureStep(checkId, scope, 'Discord send', () => channel.send('https://tenor.com/view/asuka-feliz-jueves-gif-7509624986630694154'));
   } catch (error) {
-    await routineSentCollection.deleteOne({ key: sentKey });
+    // Ya no borramos el registro si falla. Se evita el reintento infinito.
     throw error;
   }
 }
