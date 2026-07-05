@@ -681,8 +681,10 @@ async function startBot() {
     const db = mongoClient.db('linkbot');
     linksCollection = db.collection('links');
     routineSentCollection = db.collection('routineSent');
+
+    await routineSentCollection.createIndex({ "createdAt": 1 }, { expireAfterSeconds: 604800 });
     
-    await measureStep(0, 'Discord', 'Login', () => client.login(process.env.DISCORD_TOKEN));
+    await measureStep(0, 'Discord', 'Login', () => client.login(process.env.DISCORD_TOKEN), 0);
   } catch (error) {
     logError(0, 'STARTUP', 'Startup failed', error);
     setTimeout(startBot, 10000);
