@@ -41,7 +41,7 @@ const ROUTINE_CONFIGS = [
 ];
 
 // ========================================
-// DEBUG & LOGGING GLOBAL
+// DEBUG, LOGGING & TIMEOUTS
 // ========================================
 let routineCheckCounter = 0;
 
@@ -62,17 +62,36 @@ function logError(checkId, scope, message, error) {
   console.error(`[${timestamp()}] [CHECK #${checkId}] [${scope}] ${message}`, error);
 }
 
-async function measureStep(checkId, scope, step, callback) {
+const withTimeout = (promise, ms) => {
+  let timeoutId;
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(`La operación excedió el tiempo límite de ${ms}ms`));
+    }, ms);
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timeoutId));
+};
+
+async function measureStep(checkId, scope, step, callback, timeoutMs = 15000) {
   const started = Date.now();
   console.log(`[${timestamp()}] [CHECK #${checkId}] [${scope}] ▶ START ${step}`);
   try {
-    const result = await callback();
+    const result = await withTimeout(Promise.resolve().then(callback), timeoutMs);
     console.log(`[${timestamp()}] [CHECK #${checkId}] [${scope}] ✔ END ${step} (${Date.now() - started} ms)`);
     return result;
   } catch (error) {
     logError(checkId, scope, `FAILED ${step}`, error);
     throw error;
   }
+}
+
+function isWithinTolerance(targetTimeStr, nowMoment, toleranceMinutes = 180) {
+  if (!targetTimeStr) return false;
+  const [hours, minutes] = targetTimeStr.split(':').map(Number);
+  if (isNaN(hours) || isNaN(minutes)) return false;
+  const target = nowMoment.clone().hours(hours).minutes(minutes).seconds(0).milliseconds(0);
+  const diffMinutes = nowMoment.diff(target, 'minutes');
+  return diffMinutes >= 0 && diffMinutes <= toleranceMinutes;
 }
 
 // ========================================
@@ -441,11 +460,11 @@ async function markRoutineSent(key) {
 async function sendDailySummaryIfNeeded(checkId, config, channel) {
   const scope = `${config.displayName} Summary`;
   const now = moment().tz(config.timezone);
-  const currentTime = now.format('HH:mm');
-  if (currentTime !== config.dailySummaryTime) return;
+  
+  if (!isWithinTolerance(config.dailySummaryTime, now, 180)) return;
 
   const sentKey = `${config.key}:${now.format('YYYY-MM-DD')}:daily-summary`;
-  if (await wasRoutineSent(sentKey)) return log(checkId, scope, 'Already sent.');
+  if (await wasRoutineSent(sentKey)) return;
 
   const rows = await measureStep(checkId, scope, 'Read routine rows', () => readRoutineRows(config));
   const note = await measureStep(checkId, scope, 'Read diary', () => readDailyNote(config));
@@ -459,11 +478,11 @@ async function sendDailySummaryIfNeeded(checkId, config, channel) {
 async function sendTimedRemindersIfNeeded(checkId, config, channel) {
   const scope = `${config.displayName} Reminders`;
   const now = moment().tz(config.timezone);
-  const currentTime = now.format('HH:mm');
   const dateKey = now.format('YYYY-MM-DD');
 
   const rows = await measureStep(checkId, scope, 'Read routine', () => readRoutineRows(config));
-  const dueRows = rows.filter(row => row.type === 'horario' && getRoutineTriggerTime(row) === currentTime);
+  // Tolerancia de 180 minutos (3 horas) para enviar si falló
+  const dueRows = rows.filter(row => row.type === 'horario' && isWithinTolerance(getRoutineTriggerTime(row), now, 180));
 
   if (dueRows.length === 0) return;
 
@@ -483,10 +502,9 @@ async function sendTimedRemindersIfNeeded(checkId, config, channel) {
 async function sendAutoRemindersIfNeeded(checkId, config, channel) {
   const scope = `${config.displayName} Auto`;
   const now = moment().tz(config.timezone);
-  const currentTime = now.format('HH:mm');
   
   const reminders = await measureStep(checkId, scope, 'Read auto reminders', () => readAutoReminders(config));
-  const dueReminders = reminders.filter(r => r.time === currentTime);
+  const dueReminders = reminders.filter(r => isWithinTolerance(r.time, now, 180));
 
   for (const reminder of dueReminders) {
     const sentKey = `${config.key}:${now.format('YYYY-MM-DD')}:auto:${reminder.time}:${reminder.activity}`;
@@ -502,11 +520,10 @@ async function sendAutoRemindersIfNeeded(checkId, config, channel) {
 async function sendPatyRemindersIfNeeded(checkId, channel) {
   const scope = 'Paty';
   const now = moment().tz('America/Argentina/Cordoba');
-  const currentTime = now.format('HH:mm');
   const currentDate = now.format('DD/MM');
 
   const reminders = await measureStep(checkId, scope, 'Read Paty', () => readPatyReminders());
-  const dueReminders = reminders.filter(r => r.time === currentTime && r.date === currentDate);
+  const dueReminders = reminders.filter(r => isWithinTolerance(r.time, now, 180) && r.date === currentDate);
 
   for (const reminder of dueReminders) {
     const sentKey = `paty:${now.format('YYYY-MM-DD')}:${reminder.time}:${reminder.activity}`;
@@ -521,7 +538,7 @@ async function sendPatyRemindersIfNeeded(checkId, channel) {
 async function sendThursdayGifIfNeeded(checkId, channel) {
   const scope = 'Thursday GIF';
   const now = moment().tz('America/Argentina/Cordoba');
-  if (now.day() !== 4 || now.format('HH:mm') !== '11:00') return;
+  if (now.day() !== 4 || !isWithinTolerance('11:00', now, 180)) return;
 
   const sentKey = `global:${now.format('YYYY-MM-DD')}:thursday-gif`;
   if (await wasRoutineSent(sentKey)) return;
