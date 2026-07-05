@@ -74,7 +74,7 @@ const withTimeout = (promise, ms) => {
   return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timeoutId));
 };
 
-async function measureStep(checkId, scope, step, callback, timeoutMs = 15000) {
+async function measureStep(checkId, scope, step, callback, timeoutMs = 30000) {
   const started = Date.now();
   console.log(`[${timestamp()}] [CHECK #${checkId}] [${scope}] ▶ START ${step}`);
   try {
@@ -472,13 +472,19 @@ async function sendDailySummaryIfNeeded(checkId, config, channel) {
   const sentKey = `${config.key}:${now.format('YYYY-MM-DD')}:daily-summary`;
   if (await wasRoutineSent(sentKey)) return;
 
-  const rows = await measureStep(checkId, scope, 'Read routine rows', () => readRoutineRows(config));
-  const note = await measureStep(checkId, scope, 'Read diary', () => readDailyNote(config));
-  const forecast = await measureStep(checkId, scope, 'Read weather', () => getDailyForecastFromWeatherApi(config.forecastQuery, config.weatherLabel));
-  const embed = buildDailyRoutineSummary(config, rows, note, forecast);
+  await markRoutineSent(sentKey);
 
-  await measureStep(checkId, scope, 'Discord send', () => channel.send({ content: `Feliz ${getSpanishWeekday(now)} <@${config.userId}> ${config.heart}`, embeds: [embed] }));
-  await measureStep(checkId, scope, 'Mark sent', () => markRoutineSent(sentKey));
+  try {
+    const rows = await measureStep(checkId, scope, 'Read routine rows', () => readRoutineRows(config));
+    const note = await measureStep(checkId, scope, 'Read diary', () => readDailyNote(config));
+    const forecast = await measureStep(checkId, scope, 'Read weather', () => getDailyForecastFromWeatherApi(config.forecastQuery, config.weatherLabel));
+    const embed = buildDailyRoutineSummary(config, rows, note, forecast);
+
+    await measureStep(checkId, scope, 'Discord send', () => channel.send({ content: `Feliz ${getSpanishWeekday(now)} <@${config.userId}> ${config.heart}`, embeds: [embed] }));
+  } catch (error) {
+    await routineSentCollection.deleteOne({ key: sentKey });
+    throw error;
+  }
 }
 
 async function sendTimedRemindersIfNeeded(checkId, config, channel) {
@@ -487,7 +493,6 @@ async function sendTimedRemindersIfNeeded(checkId, config, channel) {
   const dateKey = now.format('YYYY-MM-DD');
 
   const rows = await measureStep(checkId, scope, 'Read routine', () => readRoutineRows(config));
-  // Tolerancia de 180 minutos (3 horas) para enviar si falló
   const dueRows = rows.filter(row => row.type === 'horario' && isWithinTolerance(getRoutineTriggerTime(row), now, 180));
 
   if (dueRows.length === 0) return;
@@ -495,13 +500,18 @@ async function sendTimedRemindersIfNeeded(checkId, config, channel) {
   for (const row of dueRows) {
     const triggerTime = getRoutineTriggerTime(row);
     const sentKey = `${config.key}:${dateKey}:reminder:${triggerTime}:${row.activity}`;
-    if (await measureStep(checkId, `${scope} (${triggerTime})`, 'Check database', () => wasRoutineSent(sentKey))) continue;
+    if (await wasRoutineSent(sentKey)) continue;
 
-    const formattedActivity = getFormattedRoutineActivity(row);
-    const embed = new EmbedBuilder().setColor(config.reminderColor).setTitle('Recordatorio').setDescription(formattedActivity);
-    
-    await measureStep(checkId, `${scope} (${triggerTime})`, 'Discord send', () => channel.send({ content: `<@${config.userId}> | ${formattedActivity}`, embeds: [embed] }));
-    await measureStep(checkId, `${scope} (${triggerTime})`, 'Mark sent', () => markRoutineSent(sentKey));
+    await markRoutineSent(sentKey);
+
+    try {
+      const formattedActivity = getFormattedRoutineActivity(row);
+      const embed = new EmbedBuilder().setColor(config.reminderColor).setTitle('Recordatorio').setDescription(formattedActivity);
+      await measureStep(checkId, `${scope} (${triggerTime})`, 'Discord send', () => channel.send({ content: `<@${config.userId}> | ${formattedActivity}`, embeds: [embed] }));
+    } catch (error) {
+      await routineSentCollection.deleteOne({ key: sentKey });
+      throw error;
+    }
   }
 }
 
@@ -514,12 +524,18 @@ async function sendAutoRemindersIfNeeded(checkId, config, channel) {
 
   for (const reminder of dueReminders) {
     const sentKey = `${config.key}:${now.format('YYYY-MM-DD')}:auto:${reminder.time}:${reminder.activity}`;
-    if (await measureStep(checkId, `${scope} (${reminder.time})`, 'Check db', () => wasRoutineSent(sentKey))) continue;
+    if (await wasRoutineSent(sentKey)) continue;
 
-    const embed = new EmbedBuilder().setColor(config.reminderColor).setTitle('Recordatorio').setDescription(`${reminder.time} • ${reminder.activity}`);
-    await measureStep(checkId, `${scope} (${reminder.time})`, 'Discord send', () => channel.send({ content: `<@${config.userId}> | ${reminder.activity}`, embeds: [embed] }));
-    await measureStep(checkId, `${scope} (${reminder.time})`, 'Mark sent', () => markRoutineSent(sentKey));
-    await measureStep(checkId, `${scope} (${reminder.time})`, 'Clear reminder', () => clearAutoReminder(config, reminder.rowNumber));
+    await markRoutineSent(sentKey);
+
+    try {
+      const embed = new EmbedBuilder().setColor(config.reminderColor).setTitle('Recordatorio').setDescription(`${reminder.time} • ${reminder.activity}`);
+      await measureStep(checkId, `${scope} (${reminder.time})`, 'Discord send', () => channel.send({ content: `<@${config.userId}> | ${reminder.activity}`, embeds: [embed] }));
+      await measureStep(checkId, `${scope} (${reminder.time})`, 'Clear reminder', () => clearAutoReminder(config, reminder.rowNumber));
+    } catch (error) {
+      await routineSentCollection.deleteOne({ key: sentKey });
+      throw error;
+    }
   }
 }
 
@@ -533,11 +549,17 @@ async function sendPatyRemindersIfNeeded(checkId, channel) {
 
   for (const reminder of dueReminders) {
     const sentKey = `paty:${now.format('YYYY-MM-DD')}:${reminder.time}:${reminder.activity}`;
-    if (await measureStep(checkId, `Paty ${reminder.time}`, 'Check db', () => wasRoutineSent(sentKey))) continue;
+    if (await wasRoutineSent(sentKey)) continue;
 
-    const embed = new EmbedBuilder().setColor(0xcc2a80).setTitle('Agitar las gotas').setDescription(`${reminder.time} • ${reminder.activity}`);
-    await measureStep(checkId, `Paty ${reminder.time}`, 'Discord send', () => channel.send({ content: `<@${LAURA_USER_ID}> | ${reminder.time} • ${reminder.activity}`, embeds: [embed] }));
-    await measureStep(checkId, `Paty ${reminder.time}`, 'Mark sent', () => markRoutineSent(sentKey));
+    await markRoutineSent(sentKey);
+
+    try {
+      const embed = new EmbedBuilder().setColor(0xcc2a80).setTitle('Agitar las gotas').setDescription(`${reminder.time} • ${reminder.activity}`);
+      await measureStep(checkId, `Paty ${reminder.time}`, 'Discord send', () => channel.send({ content: `<@${LAURA_USER_ID}> | ${reminder.time} • ${reminder.activity}`, embeds: [embed] }));
+    } catch (error) {
+      await routineSentCollection.deleteOne({ key: sentKey });
+      throw error;
+    }
   }
 }
 
@@ -549,8 +571,14 @@ async function sendThursdayGifIfNeeded(checkId, channel) {
   const sentKey = `global:${now.format('YYYY-MM-DD')}:thursday-gif`;
   if (await wasRoutineSent(sentKey)) return;
 
-  await measureStep(checkId, scope, 'Discord send', () => channel.send('https://tenor.com/view/asuka-feliz-jueves-gif-7509624986630694154'));
-  await measureStep(checkId, scope, 'Mark sent', () => markRoutineSent(sentKey));
+  await markRoutineSent(sentKey);
+
+  try {
+    await measureStep(checkId, scope, 'Discord send', () => channel.send('https://tenor.com/view/asuka-feliz-jueves-gif-7509624986630694154'));
+  } catch (error) {
+    await routineSentCollection.deleteOne({ key: sentKey });
+    throw error;
+  }
 }
 
 // ========================================
