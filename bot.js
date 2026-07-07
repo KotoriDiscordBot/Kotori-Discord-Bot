@@ -179,8 +179,15 @@ process.on('SIGTERM', () => shutdown('SIGTERM'));
 // CLIENTE DISCORD & EVENTOS
 // ========================================
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+let discordWasConnected = false;
 
-client.on('disconnect', event => console.warn('⚠️ Discord disconnected:', event));
+client.on('shardDisconnect', (event, shardId) => {
+  console.warn(`⚠️ Discord shard ${shardId} disconnected`, event);
+  if (discordWasConnected) {
+    sendTelegramAlert('Problemas con la conexión a Discord');
+    discordWasConnected = false;
+  }
+});
 client.on('reconnecting', () => console.log('🔄 Discord reconnecting...'));
 client.on('resume', replayed => console.log(`✅ Discord resumed (${replayed} events replayed)`));
 client.on('shardError', error => console.error('❌ WebSocket shard error:', error));
@@ -359,9 +366,24 @@ async function updateWeatherInSheet(reason = 'scheduled') {
 function startWeatherScheduler() {
   if (weatherSchedulerStarted) return;
   weatherSchedulerStarted = true;
-  console.log(`🌦️ Weather scheduler enabled (${WEATHER_INTERVAL_MINUTES} min)`);
+  console.log(`🌦️ Weather scheduler enabled (aligning to next full hour, then every 30 min)`);
+  
+  // Update al instante tras el deploy/inicio
   setTimeout(() => updateWeatherInSheet('startup').catch(err => console.error('❌ Weather startup failed:', err)), 5000);
-  setInterval(() => updateWeatherInSheet('scheduled').catch(err => console.error('❌ Scheduled weather update failed:', err)), WEATHER_INTERVAL_MINUTES * 60 * 1000);
+  
+  // Calcular ms faltantes para la próxima hora exacta
+  const now = new Date();
+  const msUntilNextHour = (60 - now.getMinutes()) * 60000 - now.getSeconds() * 1000 - now.getMilliseconds();
+
+  setTimeout(() => {
+    // Primer update sincronizado a la hora en punto
+    updateWeatherInSheet('scheduled-top-of-hour').catch(err => console.error('❌ Scheduled weather update failed:', err));
+    
+    // A partir de aquí corre cada 30 minutos (quedando a en punto y y media)
+    setInterval(() => {
+      updateWeatherInSheet('scheduled').catch(err => console.error('❌ Scheduled weather update failed:', err));
+    }, 30 * 60 * 1000); 
+  }, msUntilNextHour);
 }
 
 // ========================================
@@ -501,19 +523,20 @@ async function sendDailySummaryIfNeeded(checkId, config, channel) {
 
   await markRoutineSent(sentKey);
 
+  let msgContent = `Feliz ${getSpanishWeekday(now)} <@${config.userId}> ${config.heart}`;
   try {
     const rows = await measureStep(checkId, scope, 'Read routine rows', () => readRoutineRows(config));
     const note = await measureStep(checkId, scope, 'Read diary', () => readDailyNote(config));
     const forecast = await measureStep(checkId, scope, 'Read weather', () => getDailyForecastFromWeatherApi(config.forecastQuery, config.weatherLabel));
     const embed = buildDailyRoutineSummary(config, rows, note, forecast);
 
-    const msgContent = `Feliz ${getSpanishWeekday(now)} <@${config.userId}> ${config.heart}`;
-    const logStep = `Discord send "${msgContent}"`;
+    const logMsgContent = `Feliz ${getSpanishWeekday(now)} ${config.displayName} ${config.heart}`;
+    const logStep = `Discord send "${logMsgContent}"`;
 
     if (!channel) throw new Error('DiscordNotReady'); 
     await measureStep(checkId, scope, logStep, () => channel.send({ content: msgContent, embeds: [embed] }));
   } catch (error) {
-    sendTelegramAlert(`Error temporal de Discord para recordatorio de ${config.displayName}`);
+    sendTelegramAlert(`⚠️ Error de Discord. Resumen diario para ${config.displayName}:\n${msgContent.replace(`<@${config.userId}>`, config.displayName)}`);
     throw error;
   }
 }
@@ -535,16 +558,17 @@ async function sendTimedRemindersIfNeeded(checkId, config, channel) {
 
     await markRoutineSent(sentKey);
 
+    const formattedActivity = getFormattedRoutineActivity(row);
+    const msgContent = `<@${config.userId}> | ${formattedActivity}`;
     try {
-      const formattedActivity = getFormattedRoutineActivity(row);
       const embed = new EmbedBuilder().setColor(config.reminderColor).setTitle('Recordatorio').setDescription(formattedActivity);
-      const msgContent = `<@${config.userId}> | ${formattedActivity}`;
-      const logStep = `Discord send "${msgContent}"`;
+      const logMsgContent = `${config.displayName} | ${formattedActivity}`;
+      const logStep = `Discord send "${logMsgContent}"`;
 
       if (!channel) throw new Error('DiscordNotReady');
       await measureStep(checkId, `${scope} (${triggerTime})`, logStep, () => channel.send({ content: msgContent, embeds: [embed] }));
     } catch (error) {
-      sendTelegramAlert(`Error temporal de Discord para recordatorio de ${config.displayName}`);
+      sendTelegramAlert(`⚠️ Error de Discord. Recordatorio para ${config.displayName}:\n${formattedActivity}`);
       throw error;
     }
   }
@@ -563,16 +587,17 @@ async function sendAutoRemindersIfNeeded(checkId, config, channel) {
 
     await markRoutineSent(sentKey);
 
+    const msgContent = `<@${config.userId}> | ${reminder.activity}`;
     try {
       const embed = new EmbedBuilder().setColor(config.reminderColor).setTitle('Recordatorio').setDescription(`${reminder.time} • ${reminder.activity}`);
-      const msgContent = `<@${config.userId}> | ${reminder.activity}`;
-      const logStep = `Discord send "${msgContent}"`;
+      const logMsgContent = `${config.displayName} | ${reminder.activity}`;
+      const logStep = `Discord send "${logMsgContent}"`;
 
       if (!channel) throw new Error('DiscordNotReady');
       await measureStep(checkId, `${scope} (${reminder.time})`, logStep, () => channel.send({ content: msgContent, embeds: [embed] }));
       await measureStep(checkId, `${scope} (${reminder.time})`, 'Clear reminder', () => clearAutoReminder(config, reminder.rowNumber));
     } catch (error) {
-      sendTelegramAlert(`Error temporal de Discord para recordatorio de ${config.displayName}`);
+      sendTelegramAlert(`⚠️ Error de Discord. Recordatorio automático para ${config.displayName}:\n${reminder.time} • ${reminder.activity}`);
       throw error;
     }
   }
@@ -594,7 +619,7 @@ async function sendThursdayGifIfNeeded(checkId, channel) {
     if (!channel) throw new Error('DiscordNotReady');
     await measureStep(checkId, scope, logStep, () => channel.send('https://tenor.com/view/asuka-feliz-jueves-gif-7509624986630694154'));
   } catch (error) {
-    sendTelegramAlert(`Error temporal de Discord para recordatorio global`);
+    sendTelegramAlert(`⚠️ Error de Discord. No se pudo enviar el Feliz Jueves.`);
     throw error;
   }
 }
@@ -736,6 +761,9 @@ client.on('interactionCreate', async interaction => {
 async function startBot() {
   log(0, 'STARTUP', 'Iniciando procesos del bot (Discord, Mongo y Tareas)...');
 
+  // Enviar alerta a Telegram de manera inmediata, independiente de Discord
+  sendTelegramAlert('Conectado a Telegram exitosamente');
+
   // 1. Iniciar tareas programadas de manera inmediata
   startWeatherScheduler();
   startRoutineScheduler();
@@ -780,9 +808,11 @@ client.once('ready', async () => {
   const readyId = createRoutineCheckId();
   log(readyId, 'READY', `Logged in as ${client.user.tag}`);
   
-  // Enviar mensaje a Telegram al conectar a Discord
-  sendTelegramAlert('Conectado a Telegram exitosamente');
-  
+  if (discordWasConnected) {
+    sendTelegramAlert('Reconectado a Discord exitosamente');
+  }
+  discordWasConnected = true;
+
   // Enviar mensaje al canal privado en Discord
   try {
     const privateChannel = await client.channels.fetch('1397497912421908500');
