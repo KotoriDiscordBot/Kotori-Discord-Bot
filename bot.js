@@ -114,7 +114,6 @@ function isWithinTolerance(targetTimeStr, nowMoment, toleranceMinutes = 180) {
   
   const target = nowMoment.clone().hours(hours).minutes(minutes).seconds(0).milliseconds(0);
   
-  // Se evalúa en segundos para evitar que moment "redondee a 0" si falta menos de 1 minuto
   const diffSeconds = nowMoment.diff(target, 'seconds');
   return diffSeconds >= 0 && diffSeconds <= (toleranceMinutes * 60);
 }
@@ -456,9 +455,14 @@ function buildDailyRoutineSummary(config, rows, note, forecast) {
 // BASE DE DATOS Y ENVÍO DE RUTINAS
 // ========================================
 async function getRoutineChannel() {
-  const channel = await client.channels.fetch(ROUTINE_CHANNEL_ID);
-  if (!channel || !channel.isTextBased()) throw new Error('Routine channel not found or is not text based.');
-  return channel;
+  if (!client.isReady()) return null; // Retorna null si el bot de Discord no ha iniciado aún
+  try {
+    const channel = await client.channels.fetch(ROUTINE_CHANNEL_ID);
+    if (channel && channel.isTextBased()) return channel;
+  } catch (e) {
+    // Falla silenciosa si no se encuentra el canal, manejada más adelante
+  }
+  return null;
 }
 
 async function wasRoutineSent(key) {
@@ -498,9 +502,10 @@ async function sendDailySummaryIfNeeded(checkId, config, channel) {
     const msgContent = `Feliz ${getSpanishWeekday(now)} <@${config.userId}> ${config.heart}`;
     const logStep = `Discord send "${msgContent}"`;
 
+    if (!channel) throw new Error('DiscordNotReady'); // Detonador manual para atrapar el error
     await measureStep(checkId, scope, logStep, () => channel.send({ content: msgContent, embeds: [embed] }));
   } catch (error) {
-    sendTelegramAlert(`Resumen Diario (${config.dailySummaryTime}) | Error al enviar recordatorio de ${config.displayName}`);
+    sendTelegramAlert(`Error temporal de Discord para recordatorio de ${config.displayName}`);
     throw error;
   }
 }
@@ -528,9 +533,10 @@ async function sendTimedRemindersIfNeeded(checkId, config, channel) {
       const msgContent = `<@${config.userId}> | ${formattedActivity}`;
       const logStep = `Discord send "${msgContent}"`;
 
+      if (!channel) throw new Error('DiscordNotReady');
       await measureStep(checkId, `${scope} (${triggerTime})`, logStep, () => channel.send({ content: msgContent, embeds: [embed] }));
     } catch (error) {
-      sendTelegramAlert(`${triggerTime} • ${row.activity} | Error al enviar recordatorio de ${config.displayName}`);
+      sendTelegramAlert(`Error temporal de Discord para recordatorio de ${config.displayName}`);
       throw error;
     }
   }
@@ -554,10 +560,11 @@ async function sendAutoRemindersIfNeeded(checkId, config, channel) {
       const msgContent = `<@${config.userId}> | ${reminder.activity}`;
       const logStep = `Discord send "${msgContent}"`;
 
+      if (!channel) throw new Error('DiscordNotReady');
       await measureStep(checkId, `${scope} (${reminder.time})`, logStep, () => channel.send({ content: msgContent, embeds: [embed] }));
       await measureStep(checkId, `${scope} (${reminder.time})`, 'Clear reminder', () => clearAutoReminder(config, reminder.rowNumber));
     } catch (error) {
-      sendTelegramAlert(`${reminder.time} • ${reminder.activity} | Error al enviar recordatorio de ${config.displayName}`);
+      sendTelegramAlert(`Error temporal de Discord para recordatorio de ${config.displayName}`);
       throw error;
     }
   }
@@ -567,7 +574,6 @@ async function sendThursdayGifIfNeeded(checkId, channel) {
   const scope = 'Thursday GIF';
   const now = moment().tz('America/Argentina/Cordoba');
   
-  // Modificado a las 10:00 (hora Córdoba)
   if (now.day() !== 4 || !isWithinTolerance('10:00', now, 180)) return;
 
   const sentKey = `global:${now.format('YYYY-MM-DD')}:thursday-gif`;
@@ -577,9 +583,10 @@ async function sendThursdayGifIfNeeded(checkId, channel) {
 
   try {
     const logStep = `Discord send "Thursday GIF Asuka"`;
+    if (!channel) throw new Error('DiscordNotReady');
     await measureStep(checkId, scope, logStep, () => channel.send('https://tenor.com/view/asuka-feliz-jueves-gif-7509624986630694154'));
   } catch (error) {
-    sendTelegramAlert(`Feliz Jueves GIF (10:00) | Error al enviar recordatorio global`);
+    sendTelegramAlert(`Error temporal de Discord para recordatorio global`);
     throw error;
   }
 }
@@ -598,7 +605,7 @@ async function checkRoutineTasks() {
   log(checkId, 'SYSTEM', 'Routine check started.');
 
   try {
-    const channel = await measureStep(checkId, 'SYSTEM', 'Fetch routine channel', () => getRoutineChannel());
+    const channel = await getRoutineChannel(); // Obtenemos el canal (puede ser null)
     const tasks = [];
 
     for (const config of ROUTINE_CONFIGS) {
@@ -625,7 +632,6 @@ function startRoutineScheduler() {
   if (!ROUTINE_REMINDERS_ENABLED) return console.log('🕒 Routine reminders disabled.');
   console.log('🕒 Routine Scheduler Enabled');
   
-  // Sincronizar el scheduler para que arranque en el segundo 0 del siguiente minuto
   const now = new Date();
   const msUntilNextMinute = 60000 - (now.getSeconds() * 1000 + now.getMilliseconds());
   
@@ -723,7 +729,15 @@ async function startBot() {
 
     await routineSentCollection.createIndex({ "createdAt": 1 }, { expireAfterSeconds: 604800 });
     
-    await measureStep(0, 'Discord', 'Login', () => client.login(process.env.DISCORD_TOKEN), 0);
+    // Iniciar tareas de clima y rutina independientemente de Discord
+    startWeatherScheduler();
+    startRoutineScheduler();
+    
+    // Ejecutar login en segundo plano para evitar bloqueos
+    client.login(process.env.DISCORD_TOKEN).catch(error => {
+      logError(0, 'STARTUP', 'Fallo al iniciar sesión en Discord de forma inicial', error);
+    });
+
   } catch (error) {
     logError(0, 'STARTUP', 'Startup failed', error);
     setTimeout(startBot, 10000);
@@ -733,12 +747,24 @@ async function startBot() {
 client.once('ready', async () => {
   const readyId = createRoutineCheckId();
   log(readyId, 'READY', `Logged in as ${client.user.tag}`);
+  
+  // Enviar mensaje a Telegram al conectar a Discord
+  sendTelegramAlert('Conectado a Telegram exitosamente');
+  
+  // Enviar mensaje al canal privado en Discord
+  try {
+    const privateChannel = await client.channels.fetch('1397497912421908500');
+    if (privateChannel && privateChannel.isTextBased()) {
+      await privateChannel.send('Conectado a Discord exitosamente');
+    }
+  } catch (err) {
+    logError(readyId, 'READY', 'No se pudo enviar mensaje al canal privado de Discord', err);
+  }
+
   try {
     const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
     await measureStep(readyId, 'SlashCommands', 'Register', () => rest.put(Routes.applicationCommands(client.user.id), { body: commands }));
-    startWeatherScheduler();
-    startRoutineScheduler();
-    log(readyId, 'READY', 'Schedulers started successfully');
+    log(readyId, 'READY', 'Cliente de Discord completamente inicializado');
   } catch (error) {
     logError(readyId, 'READY', 'Initialization failed', error);
   }
