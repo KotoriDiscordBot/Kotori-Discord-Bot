@@ -20,7 +20,8 @@ const WEATHER_API_KEY = process.env.WEATHER_API_KEY;
 
 // Telegram
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const TELEGRAM_LAURA_ID = process.env.TELEGRAM_LAURA_ID;
+// Si la variable se llama diferente, ajustarla aquí.
+const TELEGRAM_LAURA_ID = process.env.TELEGRAM_LAURA_ID || process.env.TELEGRAM_CHAT_ID;
 
 const ROUTINE_CHANNEL_ID = process.env.ROUTINE_CHANNEL_ID || '1515018972766928946';
 const LAURA_USER_ID = process.env.LAURA_USER_ID || '808865358659584011';
@@ -68,8 +69,14 @@ function logError(checkId, scope, message, error) {
 
 // Envío de Alertas a Telegram
 function sendTelegramAlert(message) {
-  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_LAURA_ID) return;
+  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_LAURA_ID) {
+    console.warn(`[TELEGRAM] ⚠️ No se pudo enviar el mensaje (Falta Token o ID en las variables): ${message}`);
+    return;
+  }
+  
+  console.log(`[TELEGRAM] Enviando alerta: "${message}"`);
   const telegramData = JSON.stringify({ chat_id: TELEGRAM_LAURA_ID, text: message });
+  
   const req = https.request({
     hostname: 'api.telegram.org',
     port: 443,
@@ -77,7 +84,8 @@ function sendTelegramAlert(message) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(telegramData) }
   });
-  req.on('error', (e) => console.error('Telegram alert failed:', e));
+  
+  req.on('error', (e) => console.error('❌ Fallo la solicitud de Telegram:', e));
   req.write(telegramData);
   req.end();
 }
@@ -455,12 +463,12 @@ function buildDailyRoutineSummary(config, rows, note, forecast) {
 // BASE DE DATOS Y ENVÍO DE RUTINAS
 // ========================================
 async function getRoutineChannel() {
-  if (!client.isReady()) return null; // Retorna null si el bot de Discord no ha iniciado aún
+  if (!client.isReady()) return null; 
   try {
     const channel = await client.channels.fetch(ROUTINE_CHANNEL_ID);
     if (channel && channel.isTextBased()) return channel;
   } catch (e) {
-    // Falla silenciosa si no se encuentra el canal, manejada más adelante
+    // Falla silenciosa
   }
   return null;
 }
@@ -502,7 +510,7 @@ async function sendDailySummaryIfNeeded(checkId, config, channel) {
     const msgContent = `Feliz ${getSpanishWeekday(now)} <@${config.userId}> ${config.heart}`;
     const logStep = `Discord send "${msgContent}"`;
 
-    if (!channel) throw new Error('DiscordNotReady'); // Detonador manual para atrapar el error
+    if (!channel) throw new Error('DiscordNotReady'); 
     await measureStep(checkId, scope, logStep, () => channel.send({ content: msgContent, embeds: [embed] }));
   } catch (error) {
     sendTelegramAlert(`Error temporal de Discord para recordatorio de ${config.displayName}`);
@@ -599,13 +607,19 @@ let routineCheckRunning = false;
 
 async function checkRoutineTasks() {
   if (!ROUTINE_REMINDERS_ENABLED || routineCheckRunning) return;
+  
+  if (!routineSentCollection) {
+    console.log(`[${timestamp()}] [SYSTEM] Esperando conexión a MongoDB para chequear rutinas y evitar duplicados...`);
+    return;
+  }
+
   routineCheckRunning = true;
   const checkId = createRoutineCheckId();
   const started = Date.now();
   log(checkId, 'SYSTEM', 'Routine check started.');
 
   try {
-    const channel = await getRoutineChannel(); // Obtenemos el canal (puede ser null)
+    const channel = await getRoutineChannel(); 
     const tasks = [];
 
     for (const config of ROUTINE_CONFIGS) {
@@ -720,28 +734,46 @@ client.on('interactionCreate', async interaction => {
 // STARTUP Y READY
 // ========================================
 async function startBot() {
-  log(0, 'STARTUP', 'Starting bot...');
-  try {
-    await measureStep(0, 'MongoDB', 'Connect', () => mongoClient.connect());
-    const db = mongoClient.db('linkbot');
-    linksCollection = db.collection('links');
-    routineSentCollection = db.collection('routineSent');
+  log(0, 'STARTUP', 'Iniciando procesos del bot (Discord, Mongo y Tareas)...');
 
-    await routineSentCollection.createIndex({ "createdAt": 1 }, { expireAfterSeconds: 604800 });
-    
-    // Iniciar tareas de clima y rutina independientemente de Discord
-    startWeatherScheduler();
-    startRoutineScheduler();
-    
-    // Ejecutar login en segundo plano para evitar bloqueos
-    client.login(process.env.DISCORD_TOKEN).catch(error => {
-      logError(0, 'STARTUP', 'Fallo al iniciar sesión en Discord de forma inicial', error);
-    });
+  // 1. Iniciar tareas programadas de manera inmediata
+  startWeatherScheduler();
+  startRoutineScheduler();
 
-  } catch (error) {
-    logError(0, 'STARTUP', 'Startup failed', error);
-    setTimeout(startBot, 10000);
-  }
+  // 2. Bucle infinito para loguear en Discord (sin bloquear el resto del bot)
+  const connectDiscord = async () => {
+    while (true) {
+      try {
+        log(0, 'DISCORD', 'Intentando iniciar sesión en Discord...');
+        await client.login(process.env.DISCORD_TOKEN);
+        break; // Sale del bucle si loguea bien
+      } catch (error) {
+        logError(0, 'DISCORD', 'Fallo al loguear en Discord, reintentando en 15 segundos...', error.message);
+        await new Promise(r => setTimeout(r, 15000));
+      }
+    }
+  };
+  connectDiscord();
+
+  // 3. Bucle infinito para conectar a MongoDB (sin bloquear a Discord ni las tareas)
+  const connectMongo = async () => {
+    while (true) {
+      try {
+        log(0, 'MONGO', 'Intentando conectar a MongoDB...');
+        await measureStep(0, 'MongoDB', 'Connect', () => mongoClient.connect());
+        const db = mongoClient.db('linkbot');
+        linksCollection = db.collection('links');
+        routineSentCollection = db.collection('routineSent');
+        await routineSentCollection.createIndex({ "createdAt": 1 }, { expireAfterSeconds: 604800 });
+        log(0, 'MONGO', '✅ Conectado a MongoDB exitosamente');
+        break; // Sale del bucle si conecta bien
+      } catch (error) {
+        logError(0, 'MONGO', 'Fallo al conectar a Mongo, reintentando en 15 segundos...', error.message);
+        await new Promise(r => setTimeout(r, 15000));
+      }
+    }
+  };
+  connectMongo();
 }
 
 client.once('ready', async () => {
@@ -756,9 +788,11 @@ client.once('ready', async () => {
     const privateChannel = await client.channels.fetch('1397497912421908500');
     if (privateChannel && privateChannel.isTextBased()) {
       await privateChannel.send('Conectado a Discord exitosamente');
+    } else {
+      log(readyId, 'READY', 'No se encontró el canal privado o no es de texto.');
     }
   } catch (err) {
-    logError(readyId, 'READY', 'No se pudo enviar mensaje al canal privado de Discord', err);
+    logError(readyId, 'READY', 'No se pudo enviar mensaje al canal privado de Discord', err.message);
   }
 
   try {
