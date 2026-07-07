@@ -18,6 +18,10 @@ const GOOGLE_SERVICE_ACCOUNT_EMAIL = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
 const GOOGLE_PRIVATE_KEY = process.env.GOOGLE_PRIVATE_KEY ? process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n') : null;
 const WEATHER_API_KEY = process.env.WEATHER_API_KEY;
 
+// Telegram
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const TELEGRAM_LAURA_ID = process.env.TELEGRAM_LAURA_ID;
+
 const ROUTINE_CHANNEL_ID = process.env.ROUTINE_CHANNEL_ID || '1515018972766928946';
 const LAURA_USER_ID = process.env.LAURA_USER_ID || '808865358659584011';
 const MARIO_USER_ID = process.env.MARIO_USER_ID || '883166860407869510';
@@ -31,12 +35,12 @@ const ROUTINE_CONFIGS = [
   {
     key: 'laura', displayName: 'Laura', displayTitle: 'Laura 💗', heart: '💗', reminderColor: 0xcc2a80,
     forecastQuery: '-31.4201,-64.1888', weatherLabel: 'Córdoba', diarySheetName: 'Diario Laura',
-    sheetName: 'Bot Laura', userId: LAURA_USER_ID, timezone: 'America/Argentina/Cordoba', dailySummaryTime: '11:00'
+    sheetName: 'Bot Laura', userId: LAURA_USER_ID, timezone: 'America/Argentina/Cordoba', dailySummaryTime: '10:00'
   },
   {
     key: 'mario', displayName: 'Mario', displayTitle: 'Mario 💚', heart: '💚', reminderColor: 0x3eb3b1,
     forecastQuery: '14.6417,-90.5133', weatherLabel: 'Ciudad de Guatemala', diarySheetName: 'Diario Mario',
-    sheetName: 'Bot Mario', userId: MARIO_USER_ID, timezone: 'America/Guatemala', dailySummaryTime: '08:00'
+    sheetName: 'Bot Mario', userId: MARIO_USER_ID, timezone: 'America/Guatemala', dailySummaryTime: '07:00'
   }
 ];
 
@@ -60,6 +64,22 @@ function log(checkId, scope, message) {
 
 function logError(checkId, scope, message, error) {
   console.error(`[${timestamp()}] [CHECK #${checkId}] [${scope}] ${message}`, error);
+}
+
+// Envío de Alertas a Telegram
+function sendTelegramAlert(message) {
+  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_LAURA_ID) return;
+  const telegramData = JSON.stringify({ chat_id: TELEGRAM_LAURA_ID, text: message });
+  const req = https.request({
+    hostname: 'api.telegram.org',
+    port: 443,
+    path: `/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(telegramData) }
+  });
+  req.on('error', (e) => console.error('Telegram alert failed:', e));
+  req.write(telegramData);
+  req.end();
 }
 
 const withTimeout = (promise, ms) => {
@@ -91,9 +111,12 @@ function isWithinTolerance(targetTimeStr, nowMoment, toleranceMinutes = 180) {
   if (!targetTimeStr) return false;
   const [hours, minutes] = targetTimeStr.split(':').map(Number);
   if (isNaN(hours) || isNaN(minutes)) return false;
+  
   const target = nowMoment.clone().hours(hours).minutes(minutes).seconds(0).milliseconds(0);
-  const diffMinutes = nowMoment.diff(target, 'minutes');
-  return diffMinutes >= 0 && diffMinutes <= toleranceMinutes;
+  
+  // Se evalúa en segundos para evitar que moment "redondee a 0" si falta menos de 1 minuto
+  const diffSeconds = nowMoment.diff(target, 'seconds');
+  return diffSeconds >= 0 && diffSeconds <= (toleranceMinutes * 60);
 }
 
 // ========================================
@@ -389,14 +412,6 @@ async function clearAutoReminder(config, rowNumber) {
   }
 }
 
-async function readPatyReminders() {
-  const sheets = getSheetsClient();
-  const response = await sheets.spreadsheets.values.get({ spreadsheetId: GOOGLE_SHEET_ID, range: "'Paty Viena'!B3:E", valueRenderOption: 'FORMATTED_VALUE' });
-  return (response.data.values || []).map(row => ({
-    time: normalizeTime(row[0] || ''), activity: String(row[1] || '').trim(), date: String(row[3] || '').trim()
-  })).filter(row => row.time && row.activity && row.date);
-}
-
 // ========================================
 // CONSTRUCCIÓN DE MENSAJES DE RUTINA
 // ========================================
@@ -480,9 +495,12 @@ async function sendDailySummaryIfNeeded(checkId, config, channel) {
     const forecast = await measureStep(checkId, scope, 'Read weather', () => getDailyForecastFromWeatherApi(config.forecastQuery, config.weatherLabel));
     const embed = buildDailyRoutineSummary(config, rows, note, forecast);
 
-    await measureStep(checkId, scope, 'Discord send', () => channel.send({ content: `Feliz ${getSpanishWeekday(now)} <@${config.userId}> ${config.heart}`, embeds: [embed] }));
+    const msgContent = `Feliz ${getSpanishWeekday(now)} <@${config.userId}> ${config.heart}`;
+    const logStep = `Discord send "${msgContent}"`;
+
+    await measureStep(checkId, scope, logStep, () => channel.send({ content: msgContent, embeds: [embed] }));
   } catch (error) {
-    // Ya no borramos el registro si falla. Se evita el reintento infinito.
+    sendTelegramAlert(`Resumen Diario (${config.dailySummaryTime}) | Error al enviar recordatorio de ${config.displayName}`);
     throw error;
   }
 }
@@ -507,9 +525,12 @@ async function sendTimedRemindersIfNeeded(checkId, config, channel) {
     try {
       const formattedActivity = getFormattedRoutineActivity(row);
       const embed = new EmbedBuilder().setColor(config.reminderColor).setTitle('Recordatorio').setDescription(formattedActivity);
-      await measureStep(checkId, `${scope} (${triggerTime})`, 'Discord send', () => channel.send({ content: `<@${config.userId}> | ${formattedActivity}`, embeds: [embed] }));
+      const msgContent = `<@${config.userId}> | ${formattedActivity}`;
+      const logStep = `Discord send "${msgContent}"`;
+
+      await measureStep(checkId, `${scope} (${triggerTime})`, logStep, () => channel.send({ content: msgContent, embeds: [embed] }));
     } catch (error) {
-      // Ya no borramos el registro si falla. Se evita el reintento infinito.
+      sendTelegramAlert(`${triggerTime} • ${row.activity} | Error al enviar recordatorio de ${config.displayName}`);
       throw error;
     }
   }
@@ -530,34 +551,13 @@ async function sendAutoRemindersIfNeeded(checkId, config, channel) {
 
     try {
       const embed = new EmbedBuilder().setColor(config.reminderColor).setTitle('Recordatorio').setDescription(`${reminder.time} • ${reminder.activity}`);
-      await measureStep(checkId, `${scope} (${reminder.time})`, 'Discord send', () => channel.send({ content: `<@${config.userId}> | ${reminder.activity}`, embeds: [embed] }));
+      const msgContent = `<@${config.userId}> | ${reminder.activity}`;
+      const logStep = `Discord send "${msgContent}"`;
+
+      await measureStep(checkId, `${scope} (${reminder.time})`, logStep, () => channel.send({ content: msgContent, embeds: [embed] }));
       await measureStep(checkId, `${scope} (${reminder.time})`, 'Clear reminder', () => clearAutoReminder(config, reminder.rowNumber));
     } catch (error) {
-      // Ya no borramos el registro si falla. Se evita el reintento infinito.
-      throw error;
-    }
-  }
-}
-
-async function sendPatyRemindersIfNeeded(checkId, channel) {
-  const scope = 'Paty';
-  const now = moment().tz('America/Argentina/Cordoba');
-  const currentDate = now.format('DD/MM');
-
-  const reminders = await measureStep(checkId, scope, 'Read Paty', () => readPatyReminders());
-  const dueReminders = reminders.filter(r => isWithinTolerance(r.time, now, 180) && r.date === currentDate);
-
-  for (const reminder of dueReminders) {
-    const sentKey = `paty:${now.format('YYYY-MM-DD')}:${reminder.time}:${reminder.activity}`;
-    if (await wasRoutineSent(sentKey)) continue;
-
-    await markRoutineSent(sentKey);
-
-    try {
-      const embed = new EmbedBuilder().setColor(0xcc2a80).setTitle('Agitar las gotas').setDescription(`${reminder.time} • ${reminder.activity}`);
-      await measureStep(checkId, `Paty ${reminder.time}`, 'Discord send', () => channel.send({ content: `<@${LAURA_USER_ID}> | ${reminder.time} • ${reminder.activity}`, embeds: [embed] }));
-    } catch (error) {
-      // Ya no borramos el registro si falla. Se evita el reintento infinito.
+      sendTelegramAlert(`${reminder.time} • ${reminder.activity} | Error al enviar recordatorio de ${config.displayName}`);
       throw error;
     }
   }
@@ -566,7 +566,9 @@ async function sendPatyRemindersIfNeeded(checkId, channel) {
 async function sendThursdayGifIfNeeded(checkId, channel) {
   const scope = 'Thursday GIF';
   const now = moment().tz('America/Argentina/Cordoba');
-  if (now.day() !== 4 || !isWithinTolerance('11:00', now, 180)) return;
+  
+  // Modificado a las 10:00 (hora Córdoba)
+  if (now.day() !== 4 || !isWithinTolerance('10:00', now, 180)) return;
 
   const sentKey = `global:${now.format('YYYY-MM-DD')}:thursday-gif`;
   if (await wasRoutineSent(sentKey)) return;
@@ -574,9 +576,10 @@ async function sendThursdayGifIfNeeded(checkId, channel) {
   await markRoutineSent(sentKey);
 
   try {
-    await measureStep(checkId, scope, 'Discord send', () => channel.send('https://tenor.com/view/asuka-feliz-jueves-gif-7509624986630694154'));
+    const logStep = `Discord send "Thursday GIF Asuka"`;
+    await measureStep(checkId, scope, logStep, () => channel.send('https://tenor.com/view/asuka-feliz-jueves-gif-7509624986630694154'));
   } catch (error) {
-    // Ya no borramos el registro si falla. Se evita el reintento infinito.
+    sendTelegramAlert(`Feliz Jueves GIF (10:00) | Error al enviar recordatorio global`);
     throw error;
   }
 }
@@ -603,7 +606,6 @@ async function checkRoutineTasks() {
       tasks.push((async () => { try { await sendTimedRemindersIfNeeded(checkId, config, channel); } catch (e) { logError(checkId, config.displayName, 'Timed failed', e); } })());
       tasks.push((async () => { try { await sendAutoRemindersIfNeeded(checkId, config, channel); } catch (e) { logError(checkId, config.displayName, 'Auto failed', e); } })());
     }
-    tasks.push((async () => { try { await sendPatyRemindersIfNeeded(checkId, channel); } catch (e) { logError(checkId, 'Paty', 'Paty failed', e); } })());
     tasks.push((async () => { try { await sendThursdayGifIfNeeded(checkId, channel); } catch (e) { logError(checkId, 'GIF', 'GIF failed', e); } })());
 
     log(checkId, 'SYSTEM', `Launching ${tasks.length} async task(s).`);
@@ -622,8 +624,15 @@ function startRoutineScheduler() {
   routineSchedulerStarted = true;
   if (!ROUTINE_REMINDERS_ENABLED) return console.log('🕒 Routine reminders disabled.');
   console.log('🕒 Routine Scheduler Enabled');
-  setTimeout(checkRoutineTasks, 5000);
-  setInterval(checkRoutineTasks, 60 * 1000);
+  
+  // Sincronizar el scheduler para que arranque en el segundo 0 del siguiente minuto
+  const now = new Date();
+  const msUntilNextMinute = 60000 - (now.getSeconds() * 1000 + now.getMilliseconds());
+  
+  setTimeout(() => {
+    checkRoutineTasks();
+    setInterval(checkRoutineTasks, 60 * 1000);
+  }, msUntilNextMinute);
 }
 
 // ========================================
