@@ -35,12 +35,12 @@ const ROUTINE_REMINDERS_ENABLED = String(process.env.ROUTINE_REMINDERS_ENABLED |
 const ROUTINE_CONFIGS = [
   {
     key: 'laura', displayName: 'Laura', displayTitle: 'Laura 💗', heart: '💗', reminderColor: 0xcc2a80,
-    forecastQuery: '-31.4201,-64.1888', weatherLabel: 'Córdoba', diarySheetName: 'Diario Laura',
+    forecastQuery: '-31.448191,-64.133893', weatherLabel: 'Córdoba', diarySheetName: 'Diario Laura',
     sheetName: 'Bot Laura', userId: LAURA_USER_ID, timezone: 'America/Argentina/Cordoba', dailySummaryTime: '10:00'
   },
   {
     key: 'mario', displayName: 'Mario', displayTitle: 'Mario 💚', heart: '💚', reminderColor: 0x3eb3b1,
-    forecastQuery: '14.6417,-90.5133', weatherLabel: 'Ciudad de Guatemala', diarySheetName: 'Diario Mario',
+    forecastQuery: '14.646802,-90.504582', weatherLabel: 'Ciudad de Guatemala', diarySheetName: 'Diario Mario',
     sheetName: 'Bot Mario', userId: MARIO_USER_ID, timezone: 'America/Guatemala', dailySummaryTime: '07:00'
   }
 ];
@@ -337,8 +337,8 @@ async function updateWeatherInSheet(reason = 'scheduled') {
     const sheets = getSheetsClient();
     console.log(`🌦️ Updating weather (${reason})`);
     
-    const cordoba = await getWeatherFromWeatherApi('-31.4201,-64.1888', 'Córdoba');
-    const guatemala = await getWeatherFromWeatherApi('14.6417,-90.5133', 'Ciudad de Guatemala');
+    const cordoba = await getWeatherFromWeatherApi('-31.448191,-64.133893', 'Córdoba');
+    const guatemala = await getWeatherFromWeatherApi('14.646802,-90.504582', 'Ciudad de Guatemala');
     const nowText = moment().tz('America/Argentina/Cordoba').format('DD/MM/YYYY HH:mm');
 
     const data = [
